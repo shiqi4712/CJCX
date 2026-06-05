@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>英才班录取结果查询</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="parent-page">
+    <main class="admission-app">
+      <section class="login-screen" aria-label="英才班录取结果查询">
+        <header class="login-topbar">
+          <div class="logo-cluster">
+            <span class="school-seal">北</span>
+            <div>
+              <strong>北京大学</strong>
+              <small>PEKING UNIVERSITY</small>
+            </div>
+          </div>
+          <span class="topbar-line"></span>
+          <div class="logo-cluster">
+            <span class="play-seal">▶</span>
+            <div>
+              <strong>点猫科技</strong>
+              <small>AI 教育联合实验室</small>
+            </div>
+          </div>
+        </header>
+
+        <section class="headline-zone">
+          <div class="campus-line" aria-hidden="true">
+            <span>北京大学</span>
+          </div>
+          <p class="headline-eyebrow">编程猫在线教育中心</p>
+          <h1>英才班录取结果查询</h1>
+          <p class="headline-copy">输入学员姓名，查看本次选拔录取结果</p>
+        </section>
+
+        <form class="lookup-card" id="queryForm">
+          <label class="lookup-field">
+            <span>学员姓名</span>
+            <input id="studentName" autocomplete="name" placeholder="请输入学员姓名" />
+          </label>
+          <button class="lookup-button" type="submit">查询录取结果</button>
+          <p class="lookup-note">查询结果仅用于本次课程报名与学习规划参考。</p>
+        </form>
+      </section>
+
+      <section class="message admission-message" id="messageBox" aria-live="polite"></section>
+      <section class="result-screen" id="resultCard" hidden></section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

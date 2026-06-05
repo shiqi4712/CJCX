@@ -1,0 +1,74 @@
+"use client";
+
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { AdmissionResult, type QueryResult } from "@/components/AdmissionResult";
+
+export function ResultLookup() {
+  const searchParams = useSearchParams();
+  const studentName = searchParams.get("name")?.trim() ?? "";
+  const [result, setResult] = useState<QueryResult | null>(null);
+  const [message, setMessage] = useState(studentName ? "正在查询..." : "请输入学员姓名后再查询。");
+  const [loading, setLoading] = useState(Boolean(studentName));
+
+  useEffect(() => {
+    if (!studentName) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function fetchResult() {
+      setLoading(true);
+      setMessage("正在查询...");
+
+      const response = await fetch("/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentName })
+      });
+      const data = await response.json();
+
+      if (cancelled) return;
+
+      setLoading(false);
+      if (!response.ok) {
+        setResult(null);
+        setMessage(data.message ?? "未查询到相关结果");
+        return;
+      }
+
+      setMessage("");
+      setResult(data);
+    }
+
+    fetchResult();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [studentName]);
+
+  return (
+    <main className="result-page">
+      {loading || message ? (
+        <section className="result-state">
+          <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
+          <p>{message}</p>
+          {!loading ? <Link href="/">返回查询</Link> : null}
+        </section>
+      ) : null}
+
+      {result ? (
+        <>
+          <AdmissionResult result={result} />
+          <nav className="result-actions">
+            <Link href="/">返回查询</Link>
+          </nav>
+        </>
+      ) : null}
+    </main>
+  );
+}

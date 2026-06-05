@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>管理后台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell admin-shell">
+      <section class="hero-banner teacher-hero" aria-label="管理后台">
+        <div class="brand-row">
+          <span class="brand-mark">管</span>
+          <span class="brand-name">编程学习中心</span>
+          <span class="class-pill">后台</span>
+        </div>
+        <div class="hero-content">
+          <p class="hero-kicker">学生数据 · 老师账号 · 查询状态 · 方案导出</p>
+          <h1>管理后台</h1>
+          <p class="hero-subtitle">英才班录取查询系统</p>
+        </div>
+      </section>
+
+      <section class="panel active" id="teacherPanel">
+        <form class="teacher-login" id="teacherLogin">
+          <p class="section-title">管理员登录</p>
+
+          <label class="field">
+            <span>登录账号</span>
+            <input id="teacherAccount" autocomplete="username" placeholder="示例：admin" />
+          </label>
+
+          <label class="field">
+            <span>登录密码</span>
+            <input id="teacherPassword" autocomplete="current-password" placeholder="示例：123456" type="password" />
+          </label>
+
+          <button class="primary-button" type="submit">登录后台</button>
+          <p class="note-text">演示账号：admin，密码：123456。</p>
+        </form>
+
+        <section class="teacher-dashboard" id="teacherDashboard" hidden></section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
