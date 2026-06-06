@@ -37,6 +37,24 @@ export function encodeSession(session: Session) {
   return `${payload}.${sign(payload)}`;
 }
 
+export function buildSessionValue(session: Omit<Session, "expiresAt">) {
+  return encodeSession({ ...session, expiresAt: Date.now() + SESSION_SECONDS * 1000 });
+}
+
+export function getSessionCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: shouldUseSecureCookies(),
+    path: "/",
+    maxAge: SESSION_SECONDS
+  };
+}
+
+export function getSessionCookieName() {
+  return COOKIE_NAME;
+}
+
 export function decodeSession(value: string): Session | null {
   const [payload, signature] = value.split(".");
   if (!payload || !signature) return null;
@@ -58,17 +76,7 @@ export function decodeSession(value: string): Session | null {
 
 export async function setSession(session: Omit<Session, "expiresAt">) {
   const cookieStore = await cookies();
-  cookieStore.set(
-    COOKIE_NAME,
-    encodeSession({ ...session, expiresAt: Date.now() + SESSION_SECONDS * 1000 }),
-    {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: shouldUseSecureCookies(),
-      path: "/",
-      maxAge: SESSION_SECONDS
-    }
-  );
+  cookieStore.set(COOKIE_NAME, buildSessionValue(session), getSessionCookieOptions());
 }
 
 export async function clearSession() {

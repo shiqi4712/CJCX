@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { setSession } from "@/lib/auth";
+import { buildSessionValue, getSessionCookieName, getSessionCookieOptions } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { login } from "@/lib/store";
 import { cleanName } from "@/lib/validation";
@@ -26,6 +26,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "账号或密码不正确" }, { status: 401 });
   }
 
-  await setSession({ teacherName: user.teacherName, role: user.role });
-  return NextResponse.json({ teacherName: user.teacherName, role: user.role });
+  const response = NextResponse.json({ teacherName: user.teacherName, role: user.role });
+  response.cookies.set(
+    getSessionCookieName(),
+    buildSessionValue({ teacherName: user.teacherName, role: user.role }),
+    getSessionCookieOptions()
+  );
+  return response;
 }
