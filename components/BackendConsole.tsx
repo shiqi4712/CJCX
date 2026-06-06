@@ -172,8 +172,14 @@ function Dashboard({
       return;
     }
 
-    const formData = new FormData();
     const template = templateRef.current?.files?.[0];
+    const maxFileSize = 10 * 1024 * 1024;
+    if (studentsFile.size > maxFileSize || (template && template.size > maxFileSize)) {
+      setStatus("单个文件不能超过 10MB");
+      return;
+    }
+
+    const formData = new FormData();
     if (template) formData.append("template", template);
     formData.append("students", studentsFile);
 
@@ -182,7 +188,10 @@ function Dashboard({
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setStatus(data.message ?? "生成失败");
+      setStatus(
+        data.message ??
+          (response.status === 413 ? "上传文件过大，请压缩文件后重试或联系管理员调整上传限制" : "生成失败")
+      );
       return;
     }
 
