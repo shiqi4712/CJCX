@@ -11,6 +11,14 @@ export type Session = {
 const COOKIE_NAME = "admission_session";
 const SESSION_SECONDS = 60 * 60 * 8;
 
+function shouldUseSecureCookies() {
+  if (process.env.COOKIE_SECURE === "true") return true;
+  if (process.env.COOKIE_SECURE === "false") return false;
+
+  const publicAppUrl = process.env.PUBLIC_APP_URL;
+  return Boolean(publicAppUrl?.startsWith("https://"));
+}
+
 function getSecret() {
   const secret = process.env.SESSION_SECRET;
   if (secret) return secret;
@@ -56,7 +64,7 @@ export async function setSession(session: Omit<Session, "expiresAt">) {
     {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: shouldUseSecureCookies(),
       path: "/",
       maxAge: SESSION_SECONDS
     }

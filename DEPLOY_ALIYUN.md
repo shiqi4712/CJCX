@@ -15,6 +15,8 @@
 ```bash
 DATABASE_URL="postgres://cjcx_app:REPLACE_PASSWORD@pgm-2ze68z6e07s8j7h7.pg.rds.aliyuncs.com:5432/cjcx"
 SESSION_SECRET="REPLACE_WITH_LONG_RANDOM_SECRET"
+COOKIE_SECURE="false"
+PUBLIC_APP_URL="http://39.96.54.176"
 OSS_REGION="cn-beijing"
 OSS_ENDPOINT="oss-cn-beijing.aliyuncs.com"
 OSS_BUCKET="cjcx-files-beijing"
@@ -65,6 +67,8 @@ npm install
 cat > .env.local <<'EOF'
 DATABASE_URL=postgres://cjcx_app:REPLACE_PASSWORD@pgm-2ze68z6e07s8j7h7.pg.rds.aliyuncs.com:5432/cjcx
 SESSION_SECRET=REPLACE_WITH_LONG_RANDOM_SECRET
+COOKIE_SECURE=false
+PUBLIC_APP_URL=http://39.96.54.176
 OSS_REGION=cn-beijing
 OSS_ENDPOINT=oss-cn-beijing.aliyuncs.com
 OSS_BUCKET=cjcx-files-beijing
