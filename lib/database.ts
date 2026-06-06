@@ -1,7 +1,9 @@
-import { neon } from "@neondatabase/serverless";
+import { Pool } from "pg";
 import { hashPassword } from "./passwords";
 
-type SqlClient = ReturnType<typeof neon>;
+type SqlClient = {
+  query(text: string, values?: unknown[]): Promise<Record<string, unknown>[]>;
+};
 
 let client: SqlClient | null = null;
 let schemaPromise: Promise<void> | null = null;
@@ -19,7 +21,22 @@ export function requireDatabaseInProduction() {
 export function getSql() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("未配置 DATABASE_URL");
-  return (client ??= neon(url));
+  if (!client) {
+    const pool = new Pool({
+      connectionString: url,
+      max: 10,
+      ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined
+    });
+
+    client = {
+      async query(text, values) {
+        const result = await pool.query(text, values);
+        return result.rows as Record<string, unknown>[];
+      }
+    };
+  }
+
+  return client;
 }
 
 export async function ensureSchema() {
