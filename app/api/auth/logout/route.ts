@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getSessionCookieName } from "@/lib/auth";
+import { serializeClearedSessionCookie } from "@/lib/auth";
 
 export async function POST() {
   const response = NextResponse.json({ ok: true });
-  response.cookies.delete(getSessionCookieName());
+  response.headers.append("Set-Cookie", serializeClearedSessionCookie());
   return response;
 }

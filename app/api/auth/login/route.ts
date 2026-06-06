@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildSessionValue, getSessionCookieName, getSessionCookieOptions } from "@/lib/auth";
+import { buildSessionValue, serializeSessionCookie } from "@/lib/auth";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { login } from "@/lib/store";
 import { cleanName } from "@/lib/validation";
@@ -27,10 +27,9 @@ export async function POST(request: Request) {
   }
 
   const response = NextResponse.json({ teacherName: user.teacherName, role: user.role });
-  response.cookies.set(
-    getSessionCookieName(),
-    buildSessionValue({ teacherName: user.teacherName, role: user.role }),
-    getSessionCookieOptions()
+  response.headers.append(
+    "Set-Cookie",
+    serializeSessionCookie(buildSessionValue({ teacherName: user.teacherName, role: user.role }))
   );
   return response;
 }

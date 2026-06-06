@@ -55,6 +55,40 @@ export function getSessionCookieName() {
   return COOKIE_NAME;
 }
 
+export function serializeSessionCookie(value: string) {
+  const options = getSessionCookieOptions();
+  const parts = [
+    `${COOKIE_NAME}=${value}`,
+    `Path=${options.path}`,
+    `Max-Age=${options.maxAge}`,
+    "HttpOnly",
+    `SameSite=${options.sameSite}`
+  ];
+
+  if (options.secure) {
+    parts.push("Secure");
+  }
+
+  return parts.join("; ");
+}
+
+export function serializeClearedSessionCookie() {
+  const options = getSessionCookieOptions();
+  const parts = [
+    `${COOKIE_NAME}=`,
+    `Path=${options.path}`,
+    "Max-Age=0",
+    "HttpOnly",
+    `SameSite=${options.sameSite}`
+  ];
+
+  if (options.secure) {
+    parts.push("Secure");
+  }
+
+  return parts.join("; ");
+}
+
 export function decodeSession(value: string): Session | null {
   const [payload, signature] = value.split(".");
   if (!payload || !signature) return null;
