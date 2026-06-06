@@ -21,10 +21,34 @@ export async function parseSheetFile(file: File): Promise<RecordRow[]> {
 }
 
 function parseCsv(text: string): RecordRow[] {
-  const rows = text
-    .split(/\r?\n/)
-    .map((line) => line.split(",").map((cell) => cell.trim()))
-    .filter((row) => row.some(Boolean));
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (char === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      row.push(cell.trim());
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(cell.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+  row.push(cell.trim());
+  if (row.some(Boolean)) rows.push(row);
 
   return matrixToRecords(rows);
 }
@@ -143,7 +167,8 @@ export function toStudentRows(rows: RecordRow[]): SheetStudentRow[] {
   return rows
     .map((row) => ({
       studentName: String(row["学生姓名"] ?? "").trim(),
-      score: String(row["成绩"] ?? "").trim()
+      score: String(row["成绩"] ?? "").trim(),
+      teacherName: String(row["老师姓名"] ?? "未分配老师").trim() || "未分配老师"
     }))
     .filter((row) => row.studentName && row.score);
 }

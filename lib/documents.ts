@@ -26,7 +26,7 @@ export async function buildCoursePlanZip(templateFile: File | null, students: Sh
   const isDocx = templateFile?.name.toLowerCase().endsWith(".docx") && templateBuffer;
 
   for (const student of students) {
-    const filename = `${student.studentName}个性化学习方案文档.${isDocx ? "docx" : "doc"}`;
+    const filename = `${student.studentName}个性化学习方案.${isDocx ? "docx" : "doc"}`;
     const content = isDocx
       ? await buildDocxFromTemplate(templateBuffer, student)
       : Buffer.from(buildFallbackWordHtml(student), "utf8");
@@ -201,15 +201,13 @@ function buildFallbackWordHtml(student: SheetStudentRow) {
     </style>
   </head>
   <body>
-    <h1>${studentName}专属冲刺班课程规划</h1>
+    <h1>${studentName}专属课程规划</h1>
     <table>
       <tr><td>姓名</td><td>${studentName}</td></tr>
       <tr><td>综合成绩</td><td>${score}</td></tr>
-      <tr><td>编程猫班主任</td><td>择一老师</td></tr>
-      <tr><td>录取结果</td><td>已录取冲刺班</td></tr>
-      <tr><td>录取详情</td><td>恭喜通过编程猫教学中心审核，符合【冲刺班】入学标准，予以录取</td></tr>
-      <tr><td>学习目标</td><td>学习6个月，进行专注力、表达能力、思维能力训练，达到国家编程二级考证水平，对标省级白名单赛事</td></tr>
-      <tr><td>录取时间</td><td>2026年XX月XX日</td></tr>
+      <tr><td>班主任</td><td>${escapeHtml(student.teacherName || "未分配老师")}</td></tr>
+      <tr><td>课程建议</td><td>根据当前成绩制定阶段性学习计划，并定期复盘。</td></tr>
+      <tr><td>生成日期</td><td>${new Date().toLocaleDateString("zh-CN")}</td></tr>
     </table>
   </body>
 </html>`;

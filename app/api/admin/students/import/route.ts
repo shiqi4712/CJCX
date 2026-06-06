@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
+import { archiveUploadedFile } from "@/lib/blob-storage";
 import { parseSheetFile, toStudentRows } from "@/lib/sheets";
 import { importStudents } from "@/lib/store";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 export async function POST(request: Request) {
   const session = await requireSession("admin");
@@ -15,6 +18,9 @@ export async function POST(request: Request) {
   if (!(file instanceof File)) {
     return NextResponse.json({ message: "请上传学生成绩表" }, { status: 400 });
   }
+  if (file.size > MAX_FILE_SIZE) {
+    return NextResponse.json({ message: "文件不能超过 5MB" }, { status: 400 });
+  }
 
   const parsedRows = await parseSheetFile(file).catch((error: Error) => error);
   if (parsedRows instanceof Error) {
@@ -26,5 +32,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "表头必须包含：学生姓名、成绩" }, { status: 400 });
   }
 
-  return NextResponse.json(importStudents(rows));
+  try {
+    const result = await importStudents(rows);
+    await archiveUploadedFile("imports/students", file);
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : "学生成绩导入失败" },
+      { status: 400 }
+    );
+  }
 }

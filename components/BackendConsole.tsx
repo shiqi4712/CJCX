@@ -19,7 +19,15 @@ type Overview = {
     queried: boolean;
     queryCount: number;
     lastQuery: string | null;
+    published: boolean;
   }>;
+  teachers: Array<{
+    id: string;
+    teacherName: string;
+    role: "admin" | "teacher";
+    active: boolean;
+  }>;
+  storageMode: "postgres" | "memory";
 };
 
 type LoginState = {
@@ -133,8 +141,28 @@ function Dashboard({
       return;
     }
 
-    setStatus(`${label}导入成功：${data.importedCount} 条`);
+    setStatus(`${label}导入完成：新增 ${data.importedCount} 条，更新 ${data.updatedCount ?? 0} 条`);
     await refreshOverview();
+  }
+
+  async function mutate(endpoint: string, method: "PATCH" | "DELETE", body?: object) {
+    const response = await fetch(endpoint, {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setStatus(data.message ?? "操作失败");
+      return;
+    }
+    setStatus("操作成功");
+    await refreshOverview();
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.reload();
   }
 
   async function exportPlans() {
@@ -179,7 +207,12 @@ function Dashboard({
           <h2>{loginState.role === "admin" ? "管理后台" : "老师工作台"}</h2>
           <p>{loginState.teacherName} · {loginState.role === "admin" ? "管理员" : "老师"}</p>
         </div>
+        <button onClick={logout}>退出登录</button>
       </header>
+
+      {overview?.storageMode === "memory" ? (
+        <div className="console-message">当前为本地内存模式；部署前配置 DATABASE_URL 后将自动使用 Postgres。</div>
+      ) : null}
 
       <div className="metric-grid">
         <Metric label="学生总数" value={stats?.studentCount ?? 0} />
@@ -193,7 +226,7 @@ function Dashboard({
         <div className="tool-grid">
           <section className="tool-panel">
             <h3>学生成绩信息</h3>
-            <p>支持 .xlsx 或 .csv，表头固定为：学生姓名、成绩。</p>
+            <p>支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名。重复记录会更新。</p>
             <input ref={studentImportRef} type="file" accept=".xlsx,.csv" />
             <button onClick={() => uploadFile("/api/admin/students/import", studentImportRef.current, "学生成绩")}>
               导入学生成绩
@@ -227,6 +260,61 @@ function Dashboard({
 
       {status ? <div className="console-message success">{status}</div> : null}
 
+      {loginState.role === "admin" ? (
+        <section className="table-panel">
+          <h3>老师账号管理</h3>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>老师姓名</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview?.teachers
+                  .filter((teacher) => teacher.role === "teacher")
+                  .map((teacher) => (
+                    <tr key={teacher.id}>
+                      <td>{teacher.teacherName}</td>
+                      <td>{teacher.active ? "启用" : "停用"}</td>
+                      <td>
+                        <button
+                          onClick={() =>
+                            mutate(`/api/admin/teachers/${teacher.id}`, "PATCH", { active: !teacher.active })
+                          }
+                        >
+                          {teacher.active ? "停用" : "启用"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            const password = window.prompt(`为 ${teacher.teacherName} 设置新密码（至少 6 位）`);
+                            if (password) {
+                              void mutate(`/api/admin/teachers/${teacher.id}`, "PATCH", { password });
+                            }
+                          }}
+                        >
+                          重置密码
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`确认删除老师 ${teacher.teacherName}？其学生将变为未分配。`)) {
+                              void mutate(`/api/admin/teachers/${teacher.id}`, "DELETE");
+                            }
+                          }}
+                        >
+                          删除
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
       <section className="table-panel">
         <h3>学生查询状态</h3>
         <div className="table-wrap">
@@ -239,6 +327,7 @@ function Dashboard({
                 <th>录取结果</th>
                 <th>查询状态</th>
                 <th>最近查询</th>
+                {loginState.role === "admin" ? <th>操作</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -252,6 +341,45 @@ function Dashboard({
                     {student.queried ? `已查询 ${student.queryCount} 次` : "未查询"}
                   </td>
                   <td>{student.lastQuery ?? "-"}</td>
+                  {loginState.role === "admin" ? (
+                    <td>
+                      <button
+                        onClick={() => {
+                          const studentName = window.prompt("学生姓名", student.studentName);
+                          if (!studentName) return;
+                          const score = window.prompt("成绩", student.score);
+                          if (!score) return;
+                          const teacherName = window.prompt("老师姓名", student.teacherName);
+                          if (!teacherName) return;
+                          void mutate(`/api/admin/students/${student.id}`, "PATCH", {
+                            studentName,
+                            score,
+                            teacherName
+                          });
+                        }}
+                      >
+                        编辑
+                      </button>
+                      <button
+                        onClick={() =>
+                          mutate(`/api/admin/students/${student.id}`, "PATCH", {
+                            published: !student.published
+                          })
+                        }
+                      >
+                        {student.published ? "下架" : "发布"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`确认删除学生 ${student.studentName}？`)) {
+                            void mutate(`/api/admin/students/${student.id}`, "DELETE");
+                          }
+                        }}
+                      >
+                        删除
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>

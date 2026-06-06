@@ -13,15 +13,20 @@ export type Student = {
   queryCount: number;
   lastQuery: string | null;
   published: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type TeacherAccount = {
   id: string;
   teacherName: string;
-  password: string;
+  passwordHash: string;
   role: Role;
   active: boolean;
+  createdAt: string;
 };
+
+export type PublicTeacher = Omit<TeacherAccount, "passwordHash">;
 
 export type QueryLog = {
   id: string;
@@ -34,6 +39,7 @@ export type QueryLog = {
 export type SheetStudentRow = {
   studentName: string;
   score: string;
+  teacherName: string;
 };
 
 export type SheetTeacherRow = {
