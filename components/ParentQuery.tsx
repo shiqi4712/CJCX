@@ -48,7 +48,6 @@ export function ParentQuery() {
           <button type="submit" disabled={loading}>
             {loading ? "查询中..." : "查询录取结果"}
           </button>
-          <p>查询结果仅用于本次课程报名与学习规划参考。</p>
         </form>
       </section>
 
