@@ -88,7 +88,10 @@ async function initializeSchema() {
     await sql.query(
       `INSERT INTO teacher_accounts (id, teacher_name, password_hash, role, active)
        VALUES ($1, $2, $3, 'admin', true)
-       ON CONFLICT (teacher_name) DO NOTHING`,
+       ON CONFLICT (teacher_name) DO UPDATE SET
+         password_hash = EXCLUDED.password_hash,
+         role = 'admin',
+         active = true`,
       [id, teacherName, passwordHash]
     );
   }
