@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { DOMParser, XMLSerializer, type Element as XmlElement } from "@xmldom/xmldom";
 import fontkit from "@pdf-lib/fontkit";
@@ -50,37 +51,67 @@ export async function buildCoursePlanZip(templateFile: File | null, students: Sh
   const isDocx = templateFile?.name.toLowerCase().endsWith(".docx") && templateBuffer;
   const pdfFontBytes = isDocx ? null : await loadPdfFontBytes();
 
-  for (const student of students) {
-    const filename = `${student.studentName}个性化学习方案.pdf`;
-    const content = isDocx
-      ? await convertDocxTemplateToPdf(templateBuffer, student)
-      : await buildPdfDocument(filename.replace(/\.pdf$/i, ""), buildFallbackPdfLines(student), pdfFontBytes!);
-    archive.file(filename, content);
+  if (isDocx) {
+    const pdfDocuments = await convertDocxTemplatesToPdf(templateBuffer, students);
+    for (const { student, content } of pdfDocuments) {
+      archive.file(`${student.studentName}个性化学习方案.pdf`, content);
+    }
+  } else {
+    for (const student of students) {
+      const filename = `${student.studentName}个性化学习方案.pdf`;
+      const content = await buildPdfDocument(
+        filename.replace(/\.pdf$/i, ""),
+        buildFallbackPdfLines(student),
+        pdfFontBytes!
+      );
+      archive.file(filename, content);
+    }
   }
 
   return archive.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 }
 
-async function convertDocxTemplateToPdf(templateBuffer: Buffer, student: SheetStudentRow) {
-  const docxBuffer = await buildDocxFromTemplate(templateBuffer, student);
-  return convertDocxBufferToPdf(docxBuffer, student.studentName);
-}
-
-async function convertDocxBufferToPdf(docxBuffer: Buffer, studentName: string) {
+async function convertDocxTemplatesToPdf(templateBuffer: Buffer, students: SheetStudentRow[]) {
   const officeBinary = await findLibreOfficeBinary();
   const tempDir = await mkdtemp(path.join(tmpdir(), "course-plan-"));
-  const docxPath = path.join(tempDir, `${sanitizeFilename(studentName)}.docx`);
-  const pdfPath = docxPath.replace(/\.docx$/i, ".pdf");
+  const profileUrl = pathToFileURL(path.join(tempDir, "libreoffice-profile")).href;
 
   try {
-    await writeFile(docxPath, docxBuffer);
+    const documents = await Promise.all(
+      students.map(async (student, index) => {
+        const baseName = `course-plan-${index + 1}`;
+        const docxPath = path.join(tempDir, `${baseName}.docx`);
+        const pdfPath = path.join(tempDir, `${baseName}.pdf`);
+        const content = await buildDocxFromTemplate(templateBuffer, student);
+        await writeFile(docxPath, content);
+        return { student, docxPath, pdfPath };
+      })
+    );
+
     await execFileAsync(
       officeBinary,
-      ["--headless", "--convert-to", "pdf", "--outdir", tempDir, docxPath],
-      { windowsHide: true, timeout: 120000 }
+      [
+        `-env:UserInstallation=${profileUrl}`,
+        "--headless",
+        "--convert-to",
+        "pdf",
+        "--outdir",
+        tempDir,
+        ...documents.map(({ docxPath }) => docxPath)
+      ],
+      {
+        windowsHide: true,
+        timeout: Math.min(600000, Math.max(120000, students.length * 10000))
+      }
     );
-    return await readFile(pdfPath);
-  } catch (error) {
+
+    return Promise.all(
+      documents.map(async ({ student, pdfPath }) => ({
+        student,
+        content: await readFile(pdfPath)
+      }))
+    );
+  } catch {
     throw new Error(
       "未找到可用的 LibreOffice PDF 转换环境，请在服务器安装 libreoffice 和 libreoffice-writer，或配置 LIBREOFFICE_BIN"
     );
@@ -104,10 +135,6 @@ async function findLibreOfficeBinary() {
   throw new Error(
     "未找到可用的 LibreOffice PDF 转换环境，请在服务器安装 libreoffice 和 libreoffice-writer，或配置 LIBREOFFICE_BIN"
   );
-}
-
-function sanitizeFilename(value: string) {
-  return value.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 80) || "course-plan";
 }
 
 async function buildPdfDocument(title: string, lines: string[], pdfFontBytes: Uint8Array) {
