@@ -92,6 +92,18 @@ pm2 save
 pm2 startup
 ```
 
+PDF 导出依赖中文字体，Ubuntu 服务器建议额外安装：
+
+```bash
+sudo apt install -y fonts-noto-cjk
+```
+
+如果系统字体路径不在默认候选列表中，可在 `.env.local` 中额外配置：
+
+```bash
+COURSE_PLAN_FONT_PATH=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf
+```
+
 ## Nginx 反向代理
 
 ```bash

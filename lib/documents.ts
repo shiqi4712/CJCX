@@ -1,8 +1,28 @@
+import { access, readFile } from "node:fs/promises";
+import path from "node:path";
 import { DOMParser, XMLSerializer, type Element as XmlElement } from "@xmldom/xmldom";
+import fontkit from "@pdf-lib/fontkit";
 import JSZip from "jszip";
+import { PDFDocument, rgb } from "pdf-lib";
 import type { SheetStudentRow } from "./types";
 
 const WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+const A4_WIDTH = 595.28;
+const A4_HEIGHT = 841.89;
+const PAGE_MARGIN = 48;
+const TITLE_SIZE = 20;
+const BODY_SIZE = 11;
+const LINE_HEIGHT = 18;
+const PDF_FONT_CANDIDATES = [
+  process.env.COURSE_PLAN_FONT_PATH,
+  "C:\\Windows\\Fonts\\simhei.ttf",
+  "C:\\Windows\\Fonts\\msyh.ttf",
+  "/usr/share/fonts/truetype/arphic/ukai.ttf",
+  "/usr/share/fonts/truetype/arphic/uming.ttf",
+  "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+  "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf",
+  "/usr/local/share/fonts/NotoSansCJK-Regular.otf"
+].filter((value): value is string => Boolean(value));
 
 const escapeXml = (value: string) =>
   value
@@ -12,28 +32,113 @@ const escapeXml = (value: string) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
 
-const escapeHtml = (value: string) =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-
 export async function buildCoursePlanZip(templateFile: File | null, students: SheetStudentRow[]) {
   const archive = new JSZip();
   const templateBuffer = templateFile ? Buffer.from(await templateFile.arrayBuffer()) : null;
   const isDocx = templateFile?.name.toLowerCase().endsWith(".docx") && templateBuffer;
+  const pdfFontBytes = await loadPdfFontBytes();
 
   for (const student of students) {
-    const filename = `${student.studentName}个性化学习方案.${isDocx ? "docx" : "doc"}`;
-    const content = isDocx
-      ? await buildDocxFromTemplate(templateBuffer, student)
-      : Buffer.from(buildFallbackWordHtml(student), "utf8");
+    const filename = `${student.studentName}个性化学习方案.pdf`;
+    const lines = isDocx
+      ? await buildPdfLinesFromTemplate(templateBuffer, student)
+      : buildFallbackPdfLines(student);
+    const content = await buildPdfDocument(filename.replace(/\.pdf$/i, ""), lines, pdfFontBytes);
     archive.file(filename, content);
   }
 
   return archive.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+}
+
+async function buildPdfLinesFromTemplate(templateBuffer: Buffer, student: SheetStudentRow) {
+  const docxBuffer = await buildDocxFromTemplate(templateBuffer, student);
+  const extracted = await extractLinesFromDocx(docxBuffer);
+  return extracted.length > 0 ? extracted : buildFallbackPdfLines(student);
+}
+
+async function buildPdfDocument(title: string, lines: string[], pdfFontBytes: Uint8Array) {
+  const pdf = await PDFDocument.create();
+  pdf.registerFontkit(fontkit);
+
+  const font = await pdf.embedFont(pdfFontBytes, { subset: false });
+  let page = pdf.addPage([A4_WIDTH, A4_HEIGHT]);
+  let cursorY = A4_HEIGHT - PAGE_MARGIN;
+
+  const drawWrappedLine = (text: string, size: number) => {
+    const wrapped = wrapText(text, font, size, A4_WIDTH - PAGE_MARGIN * 2);
+    for (const line of wrapped) {
+      if (cursorY < PAGE_MARGIN + LINE_HEIGHT) {
+        page = pdf.addPage([A4_WIDTH, A4_HEIGHT]);
+        cursorY = A4_HEIGHT - PAGE_MARGIN;
+      }
+
+      page.drawText(line, {
+        x: PAGE_MARGIN,
+        y: cursorY,
+        size,
+        font,
+        color: rgb(0.12, 0.14, 0.18)
+      });
+      cursorY -= size === TITLE_SIZE ? 28 : LINE_HEIGHT;
+    }
+  };
+
+  drawWrappedLine(title, TITLE_SIZE);
+  cursorY -= 8;
+
+  for (const line of lines) {
+    if (!line.trim()) {
+      cursorY -= 8;
+      continue;
+    }
+    drawWrappedLine(line, BODY_SIZE);
+  }
+
+  return Buffer.from(await pdf.save());
+}
+
+function wrapText(text: string, font: any, size: number, maxWidth: number) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return [""];
+
+  const lines: string[] = [];
+  let current = "";
+
+  for (const char of normalized) {
+    const next = `${current}${char}`;
+    if (font.widthOfTextAtSize(next, size) <= maxWidth) {
+      current = next;
+      continue;
+    }
+
+    if (current) {
+      lines.push(current);
+      current = char;
+    } else {
+      lines.push(char);
+    }
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines;
+}
+
+async function loadPdfFontBytes() {
+  for (const candidate of PDF_FONT_CANDIDATES) {
+    try {
+      await access(candidate);
+      return new Uint8Array(await readFile(candidate));
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error(
+    "未找到可用的中文字体，请在服务器安装 fonts-wqy-zenhei 或配置 COURSE_PLAN_FONT_PATH 指向可读的中文字体文件"
+  );
 }
 
 async function buildDocxFromTemplate(templateBuffer: Buffer, student: SheetStudentRow) {
@@ -65,6 +170,55 @@ async function buildDocxFromTemplate(templateBuffer: Buffer, student: SheetStude
   }
 
   return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+}
+
+async function extractLinesFromDocx(docxBuffer: Buffer) {
+  const zip = await JSZip.loadAsync(docxBuffer);
+  const documentXml = await zip.file("word/document.xml")?.async("string");
+  if (!documentXml) {
+    return [];
+  }
+
+  const doc = new DOMParser().parseFromString(documentXml, "application/xml");
+  if (!doc.documentElement) {
+    return [];
+  }
+
+  const body = getElements(doc.documentElement, "body")[0];
+  if (!body) {
+    return [];
+  }
+
+  const lines: string[] = [];
+  for (let child = body.firstChild; child; child = child.nextSibling) {
+    if (child.nodeType !== 1) continue;
+    const element = child as unknown as XmlElement;
+    const name = element.localName || element.nodeName.split(":").pop();
+
+    if (name === "p") {
+      const text = collapseWhitespace(getCellText(element));
+      if (text) {
+        lines.push(text);
+      }
+      continue;
+    }
+
+    if (name === "tbl") {
+      for (const row of getElements(element, "tr")) {
+        const cells = getElements(row, "tc")
+          .map((cell) => collapseWhitespace(getCellText(cell)))
+          .filter(Boolean);
+        if (cells.length === 0) continue;
+        lines.push(cells.join("  "));
+      }
+    }
+  }
+
+  return lines;
+}
+
+function collapseWhitespace(value: string) {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function replaceTableFields(xml: string, student: SheetStudentRow) {
@@ -184,31 +338,12 @@ function normalizeLabel(value: string) {
   return value.replace(/[\s:：]/g, "");
 }
 
-function buildFallbackWordHtml(student: SheetStudentRow) {
-  const studentName = escapeHtml(student.studentName);
-  const score = escapeHtml(student.score);
-
-  return `<!doctype html>
-<html>
-  <head>
-    <meta charset="UTF-8">
-    <style>
-      body { font-family: "Microsoft YaHei", Arial, sans-serif; color: #202124; }
-      h1 { font-size: 24px; margin: 24px 0; }
-      table { width: 100%; border-collapse: collapse; font-size: 16px; }
-      td { border: 1px solid #c8cdd5; padding: 12px 16px; line-height: 1.7; }
-      td:first-child { width: 180px; background: #f7f9fc; }
-    </style>
-  </head>
-  <body>
-    <h1>${studentName}专属课程规划</h1>
-    <table>
-      <tr><td>姓名</td><td>${studentName}</td></tr>
-      <tr><td>综合成绩</td><td>${score}</td></tr>
-      <tr><td>班主任</td><td>${escapeHtml(student.teacherName || "未分配老师")}</td></tr>
-      <tr><td>课程建议</td><td>根据当前成绩制定阶段性学习计划，并定期复盘。</td></tr>
-      <tr><td>生成日期</td><td>${new Date().toLocaleDateString("zh-CN")}</td></tr>
-    </table>
-  </body>
-</html>`;
+function buildFallbackPdfLines(student: SheetStudentRow) {
+  return [
+    `学生姓名：${student.studentName}`,
+    `综合成绩：${student.score}`,
+    `负责老师：${student.teacherName || "未分配老师"}`,
+    `课程建议：根据当前成绩制定阶段性学习计划，并定期复盘。`,
+    `生成日期：${new Date().toLocaleDateString("zh-CN")}`
+  ];
 }

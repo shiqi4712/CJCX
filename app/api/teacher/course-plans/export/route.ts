@@ -34,7 +34,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "学生信息表头必须包含：学生姓名、成绩" }, { status: 400 });
   }
 
-  const zip = await buildCoursePlanZip(templateFile instanceof File ? templateFile : null, students);
+  const zip = await buildCoursePlanZip(templateFile instanceof File ? templateFile : null, students).catch(
+    (error: Error) => error
+  );
+  if (zip instanceof Error) {
+    return NextResponse.json({ message: zip.message || "生成 PDF 失败" }, { status: 500 });
+  }
   const plainFilename = "个性化学习方案批量导出.zip";
   const filename = encodeURIComponent(plainFilename);
   await Promise.all([

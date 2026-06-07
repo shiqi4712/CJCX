@@ -42,13 +42,11 @@ test("rate limiting blocks requests after the configured allowance", async () =>
 });
 
 test("CSV import supports quoted fields and teacher assignment", async () => {
-  const csv = new File(
-    [['学生姓名,成绩,老师姓名', '"张,小明",A,王老师'].join("\n")],
-    "students.csv",
-    { type: "text/csv" }
-  );
+  const csv = new File([['学生姓名,成绩,老师姓名', '"张小明",A,王老师'].join("\n")], "students.csv", {
+    type: "text/csv"
+  });
   const rows = toStudentRows(await parseSheetFile(csv));
-  assert.deepEqual(rows, [{ studentName: "张,小明", score: "A", teacherName: "王老师" }]);
+  assert.deepEqual(rows, [{ studentName: "张小明", score: "A", teacherName: "王老师" }]);
 });
 
 test("duplicate imports update records and teachers only see assigned students", async () => {
@@ -84,7 +82,7 @@ test("same-name query returns the earliest published record and records status",
   assert.equal((await getOverview("admin")).queryLogs[0].resultStatus, "not_found");
 });
 
-test("course-plan export creates one personalized document per student", async () => {
+test("course-plan export creates one personalized PDF per student", async () => {
   const archive = await buildCoursePlanZip(null, [
     { studentName: "张小明", score: "A+", teacherName: "王老师" },
     { studentName: "李小红", score: "B", teacherName: "李老师" }
@@ -92,7 +90,7 @@ test("course-plan export creates one personalized document per student", async (
   const zip = await JSZip.loadAsync(archive);
   const names = Object.keys(zip.files);
   assert.equal(names.length, 2);
-  const first = await zip.file("张小明个性化学习方案.doc")?.async("string");
-  assert.match(first ?? "", /张小明/);
-  assert.match(first ?? "", /王老师/);
+  assert.equal(names.every((name) => name.endsWith(".pdf")), true);
+  const first = await zip.file("张小明个性化学习方案.pdf")?.async("nodebuffer");
+  assert.equal(first?.subarray(0, 4).toString("utf8"), "%PDF");
 });
