@@ -1,11 +1,15 @@
-import { access, readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { DOMParser, XMLSerializer, type Element as XmlElement } from "@xmldom/xmldom";
 import fontkit from "@pdf-lib/fontkit";
 import JSZip from "jszip";
 import { PDFDocument, rgb } from "pdf-lib";
 import type { SheetStudentRow } from "./types";
 
+const execFileAsync = promisify(execFile);
 const WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
@@ -23,6 +27,14 @@ const PDF_FONT_CANDIDATES = [
   "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf",
   "/usr/local/share/fonts/NotoSansCJK-Regular.otf"
 ].filter((value): value is string => Boolean(value));
+const OFFICE_CANDIDATES = [
+  process.env.LIBREOFFICE_BIN,
+  "/usr/bin/soffice",
+  "/usr/bin/libreoffice",
+  "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
+  "soffice",
+  "libreoffice"
+].filter((value): value is string => Boolean(value));
 
 const escapeXml = (value: string) =>
   value
@@ -36,24 +48,66 @@ export async function buildCoursePlanZip(templateFile: File | null, students: Sh
   const archive = new JSZip();
   const templateBuffer = templateFile ? Buffer.from(await templateFile.arrayBuffer()) : null;
   const isDocx = templateFile?.name.toLowerCase().endsWith(".docx") && templateBuffer;
-  const pdfFontBytes = await loadPdfFontBytes();
+  const pdfFontBytes = isDocx ? null : await loadPdfFontBytes();
 
   for (const student of students) {
     const filename = `${student.studentName}个性化学习方案.pdf`;
-    const lines = isDocx
-      ? await buildPdfLinesFromTemplate(templateBuffer, student)
-      : buildFallbackPdfLines(student);
-    const content = await buildPdfDocument(filename.replace(/\.pdf$/i, ""), lines, pdfFontBytes);
+    const content = isDocx
+      ? await convertDocxTemplateToPdf(templateBuffer, student)
+      : await buildPdfDocument(filename.replace(/\.pdf$/i, ""), buildFallbackPdfLines(student), pdfFontBytes!);
     archive.file(filename, content);
   }
 
   return archive.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 }
 
-async function buildPdfLinesFromTemplate(templateBuffer: Buffer, student: SheetStudentRow) {
+async function convertDocxTemplateToPdf(templateBuffer: Buffer, student: SheetStudentRow) {
   const docxBuffer = await buildDocxFromTemplate(templateBuffer, student);
-  const extracted = await extractLinesFromDocx(docxBuffer);
-  return extracted.length > 0 ? extracted : buildFallbackPdfLines(student);
+  return convertDocxBufferToPdf(docxBuffer, student.studentName);
+}
+
+async function convertDocxBufferToPdf(docxBuffer: Buffer, studentName: string) {
+  const officeBinary = await findLibreOfficeBinary();
+  const tempDir = await mkdtemp(path.join(tmpdir(), "course-plan-"));
+  const docxPath = path.join(tempDir, `${sanitizeFilename(studentName)}.docx`);
+  const pdfPath = docxPath.replace(/\.docx$/i, ".pdf");
+
+  try {
+    await writeFile(docxPath, docxBuffer);
+    await execFileAsync(
+      officeBinary,
+      ["--headless", "--convert-to", "pdf", "--outdir", tempDir, docxPath],
+      { windowsHide: true, timeout: 120000 }
+    );
+    return await readFile(pdfPath);
+  } catch (error) {
+    throw new Error(
+      "未找到可用的 LibreOffice PDF 转换环境，请在服务器安装 libreoffice 和 libreoffice-writer，或配置 LIBREOFFICE_BIN"
+    );
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function findLibreOfficeBinary() {
+  for (const candidate of OFFICE_CANDIDATES) {
+    try {
+      if (candidate.includes(path.sep) || candidate.includes("\\")) {
+        await access(candidate);
+      }
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error(
+    "未找到可用的 LibreOffice PDF 转换环境，请在服务器安装 libreoffice 和 libreoffice-writer，或配置 LIBREOFFICE_BIN"
+  );
+}
+
+function sanitizeFilename(value: string) {
+  return value.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 80) || "course-plan";
 }
 
 async function buildPdfDocument(title: string, lines: string[], pdfFontBytes: Uint8Array) {
@@ -97,7 +151,7 @@ async function buildPdfDocument(title: string, lines: string[], pdfFontBytes: Ui
   return Buffer.from(await pdf.save());
 }
 
-function wrapText(text: string, font: any, size: number, maxWidth: number) {
+function wrapText(text: string, font: { widthOfTextAtSize: (text: string, size: number) => number }, size: number, maxWidth: number) {
   const normalized = text.replace(/\s+/g, " ").trim();
   if (!normalized) return [""];
 
@@ -136,9 +190,7 @@ async function loadPdfFontBytes() {
     }
   }
 
-  throw new Error(
-    "未找到可用的中文字体，请在服务器安装 fonts-wqy-zenhei 或配置 COURSE_PLAN_FONT_PATH 指向可读的中文字体文件"
-  );
+  throw new Error("未找到可用的中文字体，请在服务器安装可读的中文字体，或配置 COURSE_PLAN_FONT_PATH");
 }
 
 async function buildDocxFromTemplate(templateBuffer: Buffer, student: SheetStudentRow) {
@@ -170,55 +222,6 @@ async function buildDocxFromTemplate(templateBuffer: Buffer, student: SheetStude
   }
 
   return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
-}
-
-async function extractLinesFromDocx(docxBuffer: Buffer) {
-  const zip = await JSZip.loadAsync(docxBuffer);
-  const documentXml = await zip.file("word/document.xml")?.async("string");
-  if (!documentXml) {
-    return [];
-  }
-
-  const doc = new DOMParser().parseFromString(documentXml, "application/xml");
-  if (!doc.documentElement) {
-    return [];
-  }
-
-  const body = getElements(doc.documentElement, "body")[0];
-  if (!body) {
-    return [];
-  }
-
-  const lines: string[] = [];
-  for (let child = body.firstChild; child; child = child.nextSibling) {
-    if (child.nodeType !== 1) continue;
-    const element = child as unknown as XmlElement;
-    const name = element.localName || element.nodeName.split(":").pop();
-
-    if (name === "p") {
-      const text = collapseWhitespace(getCellText(element));
-      if (text) {
-        lines.push(text);
-      }
-      continue;
-    }
-
-    if (name === "tbl") {
-      for (const row of getElements(element, "tr")) {
-        const cells = getElements(row, "tc")
-          .map((cell) => collapseWhitespace(getCellText(cell)))
-          .filter(Boolean);
-        if (cells.length === 0) continue;
-        lines.push(cells.join("  "));
-      }
-    }
-  }
-
-  return lines;
-}
-
-function collapseWhitespace(value: string) {
-  return value.replace(/\s+/g, " ").trim();
 }
 
 function replaceTableFields(xml: string, student: SheetStudentRow) {
@@ -343,7 +346,7 @@ function buildFallbackPdfLines(student: SheetStudentRow) {
     `学生姓名：${student.studentName}`,
     `综合成绩：${student.score}`,
     `负责老师：${student.teacherName || "未分配老师"}`,
-    `课程建议：根据当前成绩制定阶段性学习计划，并定期复盘。`,
+    "课程建议：根据当前成绩制定阶段性学习计划，并定期复盘。",
     `生成日期：${new Date().toLocaleDateString("zh-CN")}`
   ];
 }
