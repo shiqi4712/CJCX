@@ -60,6 +60,24 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
           </i>
         </div>
 
+        {admitted ? (
+          <section className="course-time-card">
+            <div>
+              <h3>选择上课时间</h3>
+              <p>每节课 1 小时，请选择一个意向时段。</p>
+            </div>
+            <select value={courseTime} onChange={(event) => void saveCourseTime(event.target.value)} disabled={saving}>
+              <option value="">请选择上课时间</option>
+              {COURSE_TIME_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            {message ? <span>{message}</span> : null}
+          </section>
+        ) : null}
+
         <article className="invitation">
           <div className="invitation-head">
             <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
@@ -76,22 +94,6 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
             <p>{result.advice}</p>
           </div>
         </article>
-
-        {admitted ? (
-          <section className="course-time-card">
-            <h3>请选择上课时间</h3>
-            <p>请选择一个意向上课时间，老师会根据班级安排进一步确认。</p>
-            <select value={courseTime} onChange={(event) => void saveCourseTime(event.target.value)} disabled={saving}>
-              <option value="">请选择上课时间</option>
-              {COURSE_TIME_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-            {message ? <span>{message}</span> : null}
-          </section>
-        ) : null}
 
         <footer className="certificate-footer">
           <span>{result.queryDate}</span>
