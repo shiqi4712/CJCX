@@ -1,15 +1,41 @@
+"use client";
+
+import { useState } from "react";
+import { COURSE_TIME_OPTIONS } from "@/lib/course-times";
+
 export type QueryResult = {
+  studentId: string;
   studentName: string;
   score: string;
   admissionResult: string;
   recommendedClass: string;
   admissionDetail: string;
   advice: string;
+  preferredCourseTime: string | null;
   queryDate: string;
 };
 
 export function AdmissionResult({ result }: { result: QueryResult }) {
   const admitted = result.admissionResult === "已录取";
+  const [courseTime, setCourseTime] = useState(result.preferredCourseTime ?? "");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function saveCourseTime(value: string) {
+    setCourseTime(value);
+    setMessage("");
+    if (!value) return;
+
+    setSaving(true);
+    const response = await fetch("/api/students/course-time", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId: result.studentId, courseTime: value })
+    });
+    const data = await response.json().catch(() => ({}));
+    setSaving(false);
+    setMessage(response.ok ? "上课时间已保存" : data.message ?? "保存失败，请稍后重试");
+  }
 
   return (
     <section className={`certificate ${admitted ? "" : "not-admitted"}`}>
@@ -50,6 +76,22 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
             <p>{result.advice}</p>
           </div>
         </article>
+
+        {admitted ? (
+          <section className="course-time-card">
+            <h3>请选择上课时间</h3>
+            <p>请选择一个意向上课时间，老师会根据班级安排进一步确认。</p>
+            <select value={courseTime} onChange={(event) => void saveCourseTime(event.target.value)} disabled={saving}>
+              <option value="">请选择上课时间</option>
+              {COURSE_TIME_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            {message ? <span>{message}</span> : null}
+          </section>
+        ) : null}
 
         <footer className="certificate-footer">
           <span>{result.queryDate}</span>

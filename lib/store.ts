@@ -90,6 +90,7 @@ function mapStudent(row: Record<string, unknown>): Student {
     queried: Boolean(row.queried),
     queryCount: Number(row.query_count),
     lastQuery: row.last_query ? new Date(String(row.last_query)).toISOString() : null,
+    preferredCourseTime: row.preferred_course_time ? String(row.preferred_course_time) : null,
     published: Boolean(row.published),
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString()
@@ -266,10 +267,11 @@ export async function importStudents(rows: SheetStudentRow[]) {
           teacherName: teacherName ?? "未分配老师",
           score: row.score,
           ...admission,
-          queried: false,
-          queryCount: 0,
-          lastQuery: null,
-          published: true,
+        queried: false,
+        queryCount: 0,
+        lastQuery: null,
+        preferredCourseTime: null,
+        published: true,
           createdAt: time,
           updatedAt: time
         });
@@ -382,7 +384,7 @@ export async function importTeachers(rows: SheetTeacherRow[]) {
 
 export async function updateStudent(
   id: string,
-  input: Partial<Pick<Student, "studentName" | "score" | "teacherName" | "published">>
+  input: Partial<Pick<Student, "studentName" | "score" | "teacherName" | "published" | "preferredCourseTime">>
 ) {
   await ensureReady();
   const current = (await getOverview("admin")).students.find((student) => student.id === id);
@@ -392,10 +394,19 @@ export async function updateStudent(
   const score = input.score ?? current.score;
   const teacherName = input.teacherName ?? current.teacherName;
   const published = input.published ?? current.published;
+  const preferredCourseTime = input.preferredCourseTime ?? current.preferredCourseTime;
   const admission = buildAdmissionByScore(score);
 
   if (!hasDatabase()) {
-    Object.assign(current, { studentName, score, teacherName, published, ...admission, updatedAt: nowText() });
+    Object.assign(current, {
+      studentName,
+      score,
+      teacherName,
+      published,
+      preferredCourseTime,
+      ...admission,
+      updatedAt: nowText()
+    });
     const index = memory.students.findIndex((student) => student.id === id);
     memory.students[index] = current;
     return current;
@@ -403,7 +414,8 @@ export async function updateStudent(
 
   const rows = (await getSql().query(
     `UPDATE students SET student_name=$2, normalized_name=$3, score=$4, teacher_name=$5,
-       published=$6, admission=$7, class_name=$8, detail=$9, advice=$10, updated_at=now()
+       published=$6, admission=$7, class_name=$8, detail=$9, advice=$10,
+       preferred_course_time=$11, updated_at=now()
      WHERE id=$1 RETURNING *`,
     [
       id,
@@ -415,8 +427,28 @@ export async function updateStudent(
       admission.admission,
       admission.className,
       admission.detail,
-      admission.advice
+      admission.advice,
+      preferredCourseTime
     ]
+  )) as unknown as Record<string, unknown>[];
+  return rows[0] ? mapStudent(rows[0]) : null;
+}
+
+export async function updateStudentCourseTime(id: string, preferredCourseTime: string) {
+  await ensureReady();
+
+  if (!hasDatabase()) {
+    const student = memory.students.find((item) => item.id === id);
+    if (!student) return null;
+    student.preferredCourseTime = preferredCourseTime;
+    student.updatedAt = nowText();
+    return student;
+  }
+
+  const rows = (await getSql().query(
+    `UPDATE students SET preferred_course_time=$2, updated_at=now()
+     WHERE id=$1 AND published=true RETURNING *`,
+    [id, preferredCourseTime]
   )) as unknown as Record<string, unknown>[];
   return rows[0] ? mapStudent(rows[0]) : null;
 }

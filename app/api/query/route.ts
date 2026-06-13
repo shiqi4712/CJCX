@@ -26,12 +26,14 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
+    studentId: student.id,
     studentName: student.studentName,
     score: student.score,
     admissionResult: student.admission,
     recommendedClass: student.className,
     admissionDetail: student.detail,
     advice: student.advice,
+    preferredCourseTime: student.preferredCourseTime,
     queryDate: new Date().toLocaleDateString("zh-CN", {
       year: "numeric",
       month: "long",

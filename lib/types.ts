@@ -12,6 +12,7 @@ export type Student = {
   queried: boolean;
   queryCount: number;
   lastQuery: string | null;
+  preferredCourseTime: string | null;
   published: boolean;
   createdAt: string;
   updatedAt: string;

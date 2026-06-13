@@ -349,6 +349,49 @@ button {
   font-size: 22px;
 }
 
+.course-time-card {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #f0d59a;
+  border-radius: 14px;
+  background: #fff7e8;
+}
+
+.course-time-card h3,
+.course-time-card p {
+  margin: 0;
+}
+
+.course-time-card h3 {
+  color: #9f1d1d;
+  font-size: 20px;
+}
+
+.course-time-card p {
+  margin-top: 8px;
+  color: #6b4a25;
+  line-height: 1.6;
+}
+
+.course-time-card select {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+  border: 1px solid #e4bd6c;
+  border-radius: 10px;
+  padding: 0 12px;
+  color: #4a2b0c;
+  background: #fff;
+  font: inherit;
+}
+
+.course-time-card span {
+  display: block;
+  margin-top: 10px;
+  color: var(--green);
+  font-weight: 800;
+}
+
 .certificate-footer {
   margin-top: 24px;
   color: #8a8175;

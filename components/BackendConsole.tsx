@@ -19,6 +19,7 @@ type Overview = {
     queried: boolean;
     queryCount: number;
     lastQuery: string | null;
+    preferredCourseTime: string | null;
     published: boolean;
   }>;
   teachers: Array<{
@@ -123,6 +124,7 @@ function Dashboard({
   const teacherImportRef = useRef<HTMLInputElement>(null);
   const templateRef = useRef<HTMLInputElement>(null);
   const planStudentsRef = useRef<HTMLInputElement>(null);
+  const isAdmin = loginState.role === "admin";
 
   async function uploadFile(endpoint: string, input: HTMLInputElement | null, label: string) {
     const file = input?.files?.[0];
@@ -231,7 +233,7 @@ function Dashboard({
         <Metric label="未查询" value={stats?.pendingCount ?? 0} />
       </div>
 
-      {loginState.role === "admin" ? (
+      {isAdmin ? (
         <div className="tool-grid">
           <section className="tool-panel">
             <h3>学生成绩信息</h3>
@@ -253,23 +255,25 @@ function Dashboard({
         </div>
       ) : null}
 
-      <section className="tool-panel wide">
-        <h3>个性化学习方案</h3>
-        <p>上传课程方案 `.docx` 和学生信息表（.xlsx/.csv），系统替换学生姓名与成绩后批量导出。</p>
-        <div className="file-row">
-          <span>课程方案模板</span>
-          <input ref={templateRef} type="file" accept=".doc,.docx" />
-        </div>
-        <div className="file-row">
-          <span>学生信息表</span>
-          <input ref={planStudentsRef} type="file" accept=".xlsx,.csv" />
-        </div>
-        <button onClick={exportPlans}>生成并批量导出</button>
-      </section>
+      {isAdmin ? (
+        <section className="tool-panel wide">
+          <h3>个性化学习方案</h3>
+          <p>上传课程方案 `.docx` 和学生信息表（.xlsx/.csv），系统替换学生姓名与成绩后批量导出。</p>
+          <div className="file-row">
+            <span>课程方案模板</span>
+            <input ref={templateRef} type="file" accept=".doc,.docx" />
+          </div>
+          <div className="file-row">
+            <span>学生信息表</span>
+            <input ref={planStudentsRef} type="file" accept=".xlsx,.csv" />
+          </div>
+          <button onClick={exportPlans}>生成并批量导出</button>
+        </section>
+      ) : null}
 
       {status ? <div className="console-message success">{status}</div> : null}
 
-      {loginState.role === "admin" ? (
+      {isAdmin ? (
         <section className="table-panel">
           <h3>老师账号管理</h3>
           <div className="table-wrap">
@@ -333,6 +337,7 @@ function Dashboard({
                 <th>学生姓名</th>
                 <th>成绩</th>
                 <th>老师</th>
+                <th>上课时间</th>
                 <th>录取结果</th>
                 <th>查询状态</th>
                 <th>最近查询</th>
@@ -345,6 +350,7 @@ function Dashboard({
                   <td>{student.studentName}</td>
                   <td>{student.score}</td>
                   <td>{student.teacherName}</td>
+                  <td>{student.preferredCourseTime ?? "-"}</td>
                   <td>{student.admission}</td>
                   <td className={student.queried ? "done" : "pending"}>
                     {student.queried ? `已查询 ${student.queryCount} 次` : "未查询"}

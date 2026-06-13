@@ -20,9 +20,9 @@ function archiveCoursePlanArtifacts(templateFile: File | null, studentsFile: Fil
 }
 
 export async function POST(request: Request) {
-  const session = await requireSession();
+  const session = await requireSession("admin");
   if (!session) {
-    return NextResponse.json({ message: "请先登录" }, { status: 401 });
+    return NextResponse.json({ message: "无管理员权限" }, { status: 403 });
   }
 
   const formData = await request.formData();
