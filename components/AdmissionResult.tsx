@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { COURSE_TIME_OPTIONS } from "@/lib/course-times";
+import { COURSE_DAYS, COURSE_SLOTS } from "@/lib/course-times";
 
 export type QueryResult = {
   studentId: string;
@@ -15,22 +15,47 @@ export type QueryResult = {
   queryDate: string;
 };
 
+function splitCourseTime(value: string | null) {
+  if (!value) return { day: "", slot: "" };
+
+  const [day, slot] = value.split(" ");
+  return {
+    day: COURSE_DAYS.includes(day as (typeof COURSE_DAYS)[number]) ? day : "",
+    slot: COURSE_SLOTS.includes(slot as (typeof COURSE_SLOTS)[number]) ? slot : ""
+  };
+}
+
 export function AdmissionResult({ result }: { result: QueryResult }) {
   const admitted = result.admissionResult === "已录取";
-  const [courseTime, setCourseTime] = useState(result.preferredCourseTime ?? "");
+  const savedCourseTime = splitCourseTime(result.preferredCourseTime);
+  const [selectedDay, setSelectedDay] = useState(savedCourseTime.day);
+  const [selectedSlot, setSelectedSlot] = useState(savedCourseTime.slot);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  async function saveCourseTime(value: string) {
-    setCourseTime(value);
+  function chooseDay(day: string) {
+    setSelectedDay(day);
     setMessage("");
-    if (!value) return;
+  }
+
+  function chooseSlot(slot: string) {
+    setSelectedSlot(slot);
+    setMessage("");
+  }
+
+  async function saveCourseTime() {
+    setMessage("");
+    if (!selectedDay || !selectedSlot) {
+      setMessage("请先选择日期和时段");
+      return;
+    }
 
     setSaving(true);
+    const courseTime = `${selectedDay} ${selectedSlot}`;
     const response = await fetch("/api/students/course-time", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId: result.studentId, courseTime: value })
+      body: JSON.stringify({ studentId: result.studentId, courseTime })
     });
     const data = await response.json().catch(() => ({}));
     setSaving(false);
@@ -46,54 +71,85 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
           <span />
         </header>
 
-        <div className="student-display">
-          <p>{admitted ? "恭喜" : "亲爱的"}</p>
-          <strong>{result.studentName}</strong>
-          <em>{admitted ? "同学获得英才班录取资格" : "同学暂未获得本次录取资格"}</em>
-        </div>
-
-        <div className="score-display">
-          <span>学生成绩</span>
-          <strong>{result.score}</strong>
-          <i>
-            {result.admissionResult} · {result.recommendedClass}
-          </i>
-        </div>
-
-        {admitted ? (
-          <section className="course-time-card">
-            <div>
-              <h3>选择上课时间</h3>
-              <p>每节课 1 小时，请选择一个意向时段。</p>
-            </div>
-            <select value={courseTime} onChange={(event) => void saveCourseTime(event.target.value)} disabled={saving}>
-              <option value="">请选择上课时间</option>
-              {COURSE_TIME_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-            {message ? <span>{message}</span> : null}
-          </section>
-        ) : null}
-
-        <article className="invitation">
+        <article className={`invitation ${admitted ? "admission-letter" : ""}`}>
           <div className="invitation-head">
             <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
             <p>北大 - 点猫科技人工智能教育联合实验室</p>
             <h3>{admitted ? "编程猫英才班" : "编程猫学习建议"}</h3>
-            <h4>{admitted ? "入学邀请函" : "继续加油"}</h4>
+            <h4>{admitted ? "班级录取通知书" : "继续加油"}</h4>
           </div>
           <div className="invitation-body">
-            <p>
-              {admitted ? "经编程猫教学中心审核，" : ""}
-              {result.admissionDetail}
-            </p>
-            <strong>{admitted ? `${result.recommendedClass}录取资格` : "期待下一次突破"}</strong>
-            <p>{result.advice}</p>
+            {admitted ? (
+              <>
+                <p className="letter-kicker">恭喜</p>
+                <strong className="letter-student">{result.studentName}</strong>
+                <p className="letter-copy">
+                  同学获得英才班录取资格，本期综合成绩
+                  <b>{result.score}</b>
+                  ，已录取
+                  <b>{result.recommendedClass}</b>
+                  。
+                </p>
+                <p className="letter-status">已获得英才班录取资格</p>
+                <p className="letter-note">{result.advice}</p>
+              </>
+            ) : (
+              <>
+                <p>{result.admissionDetail}</p>
+                <strong>期待下一次突破</strong>
+                <p>{result.advice}</p>
+              </>
+            )}
           </div>
         </article>
+
+        {admitted ? (
+          <section className="course-time-card" aria-label="选择上课时间">
+            <div className="course-time-head">
+              <h3>选择上课安排</h3>
+              <p>请选择日期和时段，确认后老师会优先核对。</p>
+            </div>
+
+            <div className="course-picker-group">
+              <span>日期</span>
+              <div className="course-choice-grid days">
+                {COURSE_DAYS.map((day) => (
+                  <button
+                    key={day}
+                    type="button"
+                    className={selectedDay === day ? "active" : ""}
+                    onClick={() => chooseDay(day)}
+                    disabled={saving}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="course-picker-group">
+              <span>时段</span>
+              <div className="course-choice-grid slots">
+                {COURSE_SLOTS.map((slot) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    className={selectedSlot === slot ? "active" : ""}
+                    onClick={() => chooseSlot(slot)}
+                    disabled={saving}
+                  >
+                    {slot}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button className="course-confirm" type="button" onClick={() => void saveCourseTime()} disabled={saving}>
+              {saving ? "正在确认..." : "确认选择"}
+            </button>
+            {message ? <span className="course-time-message">{message}</span> : null}
+          </section>
+        ) : null}
 
         <footer className="certificate-footer">
           <span>{result.queryDate}</span>
