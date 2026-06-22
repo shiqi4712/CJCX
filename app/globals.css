@@ -622,6 +622,23 @@ button {
   gap: 14px;
 }
 
+.dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.dashboard-actions button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #fff;
+  background: #b9151c;
+  font-weight: 800;
+}
+
 .metric-grid,
 .tool-grid {
   display: grid;

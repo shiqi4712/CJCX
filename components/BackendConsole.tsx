@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 type Overview = {
   stats: {
@@ -29,6 +29,7 @@ type Overview = {
     active: boolean;
   }>;
   storageMode: "postgres" | "memory";
+  session?: LoginState;
 };
 
 type LoginState = {
@@ -37,18 +38,26 @@ type LoginState = {
 };
 
 export function BackendConsole({ title, defaultAccount }: { title: string; defaultAccount: string }) {
-  const [account, setAccount] = useState(defaultAccount);
-  const [password, setPassword] = useState(defaultAccount === "xiaohong" ? "bdsz666" : "bcm666");
+  const [account, setAccount] = useState("");
+  const [password, setPassword] = useState("");
   const [loginState, setLoginState] = useState<LoginState | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function refreshOverview() {
+  const refreshOverview = useCallback(async () => {
     const response = await fetch("/api/admin/overview");
-    if (!response.ok) return;
-    setOverview(await response.json());
-  }
+    if (!response.ok) {
+      setOverview(null);
+      setLoginState(null);
+      return;
+    }
+    const data = (await response.json()) as Overview;
+    setOverview(data);
+    if (data.session) {
+      setLoginState(data.session);
+    }
+  }, []);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,8 +82,8 @@ export function BackendConsole({ title, defaultAccount }: { title: string; defau
   }
 
   useEffect(() => {
-    refreshOverview();
-  }, []);
+    void refreshOverview();
+  }, [refreshOverview]);
 
   return (
     <main className="console-shell">
@@ -87,20 +96,31 @@ export function BackendConsole({ title, defaultAccount }: { title: string; defau
       </section>
 
       {!loginState ? (
-        <form className="login-card" onSubmit={handleLogin}>
+        <form className="login-card" onSubmit={handleLogin} autoComplete="off">
           <h2>后台登录</h2>
           <label>
             <span>登录账号</span>
-            <input value={account} onChange={(event) => setAccount(event.target.value)} />
+            <input
+              value={account}
+              onChange={(event) => setAccount(event.target.value)}
+              autoComplete="off"
+              name="backend-account"
+            />
           </label>
           <label>
             <span>登录密码</span>
-            <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" />
+            <input
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="new-password"
+              name="backend-password"
+              type="password"
+            />
           </label>
           <button type="submit" disabled={loading}>
             {loading ? "登录中..." : "登录后台"}
           </button>
-          <p>管理员账号：xiaohong / bdsz666；老师账号使用管理员导入的姓名，初始密码 bcm666。</p>
+          <p>{defaultAccount ? "请输入管理员账号和密码。" : "请输入老师账号和密码。"}</p>
           {message ? <div className="console-message">{message}</div> : null}
         </form>
       ) : (
@@ -125,6 +145,14 @@ function Dashboard({
   const templateRef = useRef<HTMLInputElement>(null);
   const planStudentsRef = useRef<HTMLInputElement>(null);
   const isAdmin = loginState.role === "admin";
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void refreshOverview();
+    }, 15_000);
+
+    return () => window.clearInterval(timer);
+  }, [refreshOverview]);
 
   async function uploadFile(endpoint: string, input: HTMLInputElement | null, label: string) {
     const file = input?.files?.[0];
@@ -218,7 +246,10 @@ function Dashboard({
           <h2>{loginState.role === "admin" ? "管理后台" : "老师工作台"}</h2>
           <p>{loginState.teacherName} · {loginState.role === "admin" ? "管理员" : "老师"}</p>
         </div>
-        <button onClick={logout}>退出登录</button>
+        <div className="dashboard-actions">
+          <button onClick={() => void refreshOverview()}>刷新数据</button>
+          <button onClick={logout}>退出登录</button>
+        </div>
       </header>
 
       {overview?.storageMode === "memory" ? (

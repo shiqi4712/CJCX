@@ -13,16 +13,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "请输入账号和密码" }, { status: 400 });
   }
 
-  const limit = await checkRateLimit(`login:${getClientIp(request)}:${account}`, 5, 10 * 60_000);
-  if (!limit.allowed) {
-    return NextResponse.json(
-      { message: "登录尝试过多，请稍后再试" },
-      { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
-    );
-  }
-
   const user = await login(account, password);
   if (!user) {
+    const limit = await checkRateLimit(`login-failed:${getClientIp(request)}:${account}`, 5, 10 * 60_000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { message: "登录尝试过多，请稍后再试" },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
+      );
+    }
+
     return NextResponse.json({ message: "账号或密码不正确" }, { status: 401 });
   }
 
