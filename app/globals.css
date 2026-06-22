@@ -590,6 +590,33 @@ button {
   margin: 0 0 14px;
 }
 
+.table-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.table-panel-head h3 {
+  margin: 0;
+}
+
+.table-panel-head button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #fff;
+  background: #b9151c;
+  font-weight: 800;
+}
+
+.table-panel-head button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .login-card label {
   display: grid;
   gap: 8px;
@@ -608,6 +635,12 @@ button {
   border: 1px solid #d1d5db;
   border-radius: 6px;
   padding: 8px 10px;
+}
+
+td input[type="checkbox"],
+th input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
 }
 
 .login-card p,

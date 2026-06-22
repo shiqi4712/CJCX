@@ -12,6 +12,8 @@ import {
   importTeachers,
   login,
   queryStudentByName,
+  deleteStudents,
+  deleteTeachers,
   resetMemoryStoreForTests
 } from "../lib/store";
 
@@ -80,6 +82,32 @@ test("same-name query returns the earliest published record and records status",
 
   assert.equal(await queryStudentByName("不存在"), null);
   assert.equal((await getOverview("admin")).queryLogs[0].resultStatus, "not_found");
+});
+
+test("bulk delete removes selected teachers and students", async () => {
+  resetMemoryStoreForTests();
+  await importTeachers([
+    { teacherName: "批量王老师", password: "abc123" },
+    { teacherName: "批量李老师", password: "abc123" }
+  ]);
+  await importStudents([
+    { studentName: "批量学生一", score: "A", teacherName: "批量王老师" },
+    { studentName: "批量学生二", score: "A+", teacherName: "批量李老师" }
+  ]);
+
+  const before = await getOverview("admin");
+  const teacherId = before.teachers.find((teacher) => teacher.teacherName === "批量王老师")?.id;
+  const studentId = before.students.find((student) => student.studentName === "批量学生二")?.id;
+  assert.ok(teacherId);
+  assert.ok(studentId);
+
+  assert.equal(await deleteTeachers([teacherId]), 1);
+  assert.equal(await deleteStudents([studentId]), 1);
+
+  const after = await getOverview("admin");
+  assert.equal(after.teachers.some((teacher) => teacher.teacherName === "批量王老师"), false);
+  assert.equal(after.students.some((student) => student.studentName === "批量学生二"), false);
+  assert.equal(after.students.find((student) => student.studentName === "批量学生一")?.teacherName, "未分配老师");
 });
 
 test("course-plan export creates one personalized PDF per student", async () => {

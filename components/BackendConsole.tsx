@@ -144,7 +144,11 @@ function Dashboard({
   const teacherImportRef = useRef<HTMLInputElement>(null);
   const templateRef = useRef<HTMLInputElement>(null);
   const planStudentsRef = useRef<HTMLInputElement>(null);
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const isAdmin = loginState.role === "admin";
+  const teacherRows = overview?.teachers.filter((teacher) => teacher.role === "teacher") ?? [];
+  const studentRows = overview?.students ?? [];
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -188,6 +192,39 @@ function Dashboard({
     }
     setStatus("操作成功");
     await refreshOverview();
+  }
+
+  async function bulkDelete(endpoint: string, ids: string[], label: string, onDone: () => void) {
+    if (ids.length === 0) {
+      setStatus(`请先选择要删除的${label}`);
+      return;
+    }
+    if (!window.confirm(`确认删除选中的 ${ids.length} 条${label}？此操作不可恢复。`)) {
+      return;
+    }
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setStatus(data.message ?? `批量删除${label}失败`);
+      return;
+    }
+
+    onDone();
+    setStatus(`已删除 ${data.deletedCount ?? ids.length} 条${label}`);
+    await refreshOverview();
+  }
+
+  function toggleSelection(id: string, selectedIds: string[], setSelectedIds: (ids: string[]) => void) {
+    setSelectedIds(selectedIds.includes(id) ? selectedIds.filter((item) => item !== id) : [...selectedIds, id]);
+  }
+
+  function toggleAll(ids: string[], selectedIds: string[], setSelectedIds: (ids: string[]) => void) {
+    setSelectedIds(selectedIds.length === ids.length ? [] : ids);
   }
 
   async function logout() {
@@ -238,6 +275,10 @@ function Dashboard({
   }
 
   const stats = overview?.stats;
+  const teacherIds = teacherRows.map((teacher) => teacher.id);
+  const studentIds = studentRows.map((student) => student.id);
+  const allTeachersSelected = teacherIds.length > 0 && selectedTeacherIds.length === teacherIds.length;
+  const allStudentsSelected = studentIds.length > 0 && selectedStudentIds.length === studentIds.length;
 
   return (
     <section className="dashboard">
@@ -306,21 +347,47 @@ function Dashboard({
 
       {isAdmin ? (
         <section className="table-panel">
-          <h3>老师账号管理</h3>
+          <div className="table-panel-head">
+            <h3>老师账号管理</h3>
+            <button
+              disabled={selectedTeacherIds.length === 0}
+              onClick={() =>
+                void bulkDelete("/api/admin/teachers/bulk-delete", selectedTeacherIds, "老师账号", () =>
+                  setSelectedTeacherIds([])
+                )
+              }
+            >
+              批量删除老师（{selectedTeacherIds.length}）
+            </button>
+          </div>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
+                  <th>
+                    <input
+                      aria-label="全选老师"
+                      checked={allTeachersSelected}
+                      type="checkbox"
+                      onChange={() => toggleAll(teacherIds, selectedTeacherIds, setSelectedTeacherIds)}
+                    />
+                  </th>
                   <th>老师姓名</th>
                   <th>状态</th>
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody>
-                {overview?.teachers
-                  .filter((teacher) => teacher.role === "teacher")
-                  .map((teacher) => (
+                {teacherRows.map((teacher) => (
                     <tr key={teacher.id}>
+                      <td>
+                        <input
+                          aria-label={`选择老师 ${teacher.teacherName}`}
+                          checked={selectedTeacherIds.includes(teacher.id)}
+                          type="checkbox"
+                          onChange={() => toggleSelection(teacher.id, selectedTeacherIds, setSelectedTeacherIds)}
+                        />
+                      </td>
                       <td>{teacher.teacherName}</td>
                       <td>{teacher.active ? "启用" : "停用"}</td>
                       <td>
@@ -360,11 +427,35 @@ function Dashboard({
       ) : null}
 
       <section className="table-panel">
-        <h3>学生查询状态</h3>
+        <div className="table-panel-head">
+          <h3>学生查询状态</h3>
+          {isAdmin ? (
+            <button
+              disabled={selectedStudentIds.length === 0}
+              onClick={() =>
+                void bulkDelete("/api/admin/students/bulk-delete", selectedStudentIds, "学生成绩", () =>
+                  setSelectedStudentIds([])
+                )
+              }
+            >
+              批量删除学员成绩（{selectedStudentIds.length}）
+            </button>
+          ) : null}
+        </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
+                {isAdmin ? (
+                  <th>
+                    <input
+                      aria-label="全选学生"
+                      checked={allStudentsSelected}
+                      type="checkbox"
+                      onChange={() => toggleAll(studentIds, selectedStudentIds, setSelectedStudentIds)}
+                    />
+                  </th>
+                ) : null}
                 <th>学生姓名</th>
                 <th>成绩</th>
                 <th>老师</th>
@@ -376,8 +467,18 @@ function Dashboard({
               </tr>
             </thead>
             <tbody>
-              {overview?.students.map((student) => (
+              {studentRows.map((student) => (
                 <tr key={student.id}>
+                  {isAdmin ? (
+                    <td>
+                      <input
+                        aria-label={`选择学生 ${student.studentName}`}
+                        checked={selectedStudentIds.includes(student.id)}
+                        type="checkbox"
+                        onChange={() => toggleSelection(student.id, selectedStudentIds, setSelectedStudentIds)}
+                      />
+                    </td>
+                  ) : null}
                   <td>{student.studentName}</td>
                   <td>{student.score}</td>
                   <td>{student.teacherName}</td>

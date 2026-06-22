@@ -465,6 +465,23 @@ export async function deleteStudent(id: string) {
   return rows.length > 0;
 }
 
+export async function deleteStudents(ids: string[]) {
+  await ensureReady();
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return 0;
+
+  if (!hasDatabase()) {
+    const before = memory.students.length;
+    memory.students = memory.students.filter((student) => !uniqueIds.includes(student.id));
+    return before - memory.students.length;
+  }
+
+  const rows = (await getSql().query("DELETE FROM students WHERE id = ANY($1::uuid[]) RETURNING id", [
+    uniqueIds
+  ])) as unknown[];
+  return rows.length;
+}
+
 export async function updateTeacher(id: string, input: { active?: boolean; password?: string }) {
   await ensureReady();
   const passwordHash = input.password ? await hashPassword(input.password) : null;
@@ -502,6 +519,33 @@ export async function deleteTeacher(id: string) {
     [id]
   )) as unknown[];
   return rows.length > 0;
+}
+
+export async function deleteTeachers(ids: string[]) {
+  await ensureReady();
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return 0;
+
+  if (!hasDatabase()) {
+    const removedTeacherNames = memory.teachers
+      .filter((teacher) => uniqueIds.includes(teacher.id) && teacher.role === "teacher")
+      .map((teacher) => teacher.teacherName);
+    memory.teachers = memory.teachers.filter(
+      (teacher) => !(uniqueIds.includes(teacher.id) && teacher.role === "teacher")
+    );
+    memory.students.forEach((student) => {
+      if (removedTeacherNames.includes(student.teacherName)) {
+        student.teacherName = "未分配老师";
+      }
+    });
+    return removedTeacherNames.length;
+  }
+
+  const rows = (await getSql().query(
+    "DELETE FROM teacher_accounts WHERE id = ANY($1::uuid[]) AND role='teacher' RETURNING id",
+    [uniqueIds]
+  )) as unknown[];
+  return rows.length;
 }
 
 export function resetMemoryStoreForTests() {
