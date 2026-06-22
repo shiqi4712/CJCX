@@ -13,6 +13,7 @@ import type {
 
 const normalizeName = (value: string) => value.trim().replace(/\s+/g, "").toLowerCase();
 const nowText = () => new Date().toISOString();
+export const ALREADY_QUERIED_RESULT = "already_queried" as const;
 
 function buildAdmissionByScore(score: string) {
   if (score.trim().toUpperCase() === "B") {
@@ -123,6 +124,7 @@ export async function queryStudentByName(studentName: string) {
       queriedAt
     });
     if (!student) return null;
+    if (student.queried) return ALREADY_QUERIED_RESULT;
     student.queried = true;
     student.queryCount += 1;
     student.lastQuery = queriedAt;
@@ -146,6 +148,14 @@ export async function queryStudentByName(studentName: string) {
       [logId, studentName]
     );
     return null;
+  }
+  if (Boolean(row.queried)) {
+    await sql.query(
+      `INSERT INTO query_logs (id, input_student_name, matched_student_id, result_status)
+       VALUES ($1, $2, $3, 'success')`,
+      [logId, studentName, row.id]
+    );
+    return ALREADY_QUERIED_RESULT;
   }
 
   const updated = (await sql.query(

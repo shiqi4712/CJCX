@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { queryStudentByName } from "@/lib/store";
+import { ALREADY_QUERIED_RESULT, queryStudentByName } from "@/lib/store";
 import { cleanName } from "@/lib/validation";
+
+const ALREADY_QUERIED_MESSAGE = "已经查询录取结果 请联系老师获取录取函";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { studentName?: string } | null;
@@ -23,6 +25,9 @@ export async function POST(request: Request) {
 
   if (!student) {
     return NextResponse.json({ message: "未查询到相关结果" }, { status: 404 });
+  }
+  if (student === ALREADY_QUERIED_RESULT) {
+    return NextResponse.json({ message: ALREADY_QUERIED_MESSAGE }, { status: 409 });
   }
 
   return NextResponse.json({

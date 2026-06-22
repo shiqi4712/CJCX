@@ -14,6 +14,7 @@ import {
   queryStudentByName,
   deleteStudents,
   deleteTeachers,
+  ALREADY_QUERIED_RESULT,
   resetMemoryStoreForTests
 } from "../lib/store";
 
@@ -75,10 +76,14 @@ test("duplicate imports update records and teachers only see assigned students",
 
 test("same-name query returns the earliest published record and records status", async () => {
   const result = await queryStudentByName("张小明");
+  assert.notEqual(result, ALREADY_QUERIED_RESULT);
+  if (result === ALREADY_QUERIED_RESULT) throw new Error("first query should return student");
   assert.equal(result?.teacherName, "王老师");
   assert.equal(result?.queryCount, 1);
   const overview = await getOverview("admin");
   assert.equal(overview.queryLogs[0].resultStatus, "success");
+
+  assert.equal(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
 
   assert.equal(await queryStudentByName("不存在"), null);
   assert.equal((await getOverview("admin")).queryLogs[0].resultStatus, "not_found");
