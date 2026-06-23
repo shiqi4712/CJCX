@@ -15,6 +15,7 @@ import {
   deleteStudents,
   deleteTeachers,
   ALREADY_QUERIED_RESULT,
+  resetStudentQuery,
   resetMemoryStoreForTests
 } from "../lib/store";
 
@@ -87,6 +88,22 @@ test("same-name query returns the earliest published record and records status",
 
   assert.equal(await queryStudentByName("不存在"), null);
   assert.equal((await getOverview("admin")).queryLogs[0].resultStatus, "not_found");
+});
+
+test("teacher can reset assigned student query eligibility", async () => {
+  const overview = await getOverview("teacher", "王老师");
+  const student = overview.students.find((item) => item.studentName === "张小明");
+  assert.ok(student);
+
+  const reset = await resetStudentQuery(student.id, "teacher", "王老师");
+  assert.equal(reset?.queried, false);
+  assert.equal(reset?.queryCount, 0);
+
+  const result = await queryStudentByName("张小明");
+  assert.notEqual(result, ALREADY_QUERIED_RESULT);
+  if (result === ALREADY_QUERIED_RESULT) throw new Error("query after reset should return student");
+  assert.equal(result?.queryCount, 1);
+  assert.equal(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
 });
 
 test("bulk delete removes selected teachers and students", async () => {

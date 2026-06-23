@@ -194,6 +194,22 @@ function Dashboard({
     await refreshOverview();
   }
 
+  async function resetQuery(studentId: string, studentName: string) {
+    if (!window.confirm(`确认重置 ${studentName} 的查询资格？重置后家长可以再次查询 1 次。`)) {
+      return;
+    }
+
+    const response = await fetch(`/api/students/${studentId}/reset-query`, { method: "POST" });
+    const data = await response.json();
+    if (!response.ok) {
+      setStatus(data.message ?? "重置失败");
+      return;
+    }
+
+    setStatus(`${studentName} 已重置，可再次查询 1 次`);
+    await refreshOverview();
+  }
+
   async function bulkDelete(endpoint: string, ids: string[], label: string, onDone: () => void) {
     if (ids.length === 0) {
       setStatus(`请先选择要删除的${label}`);
@@ -463,7 +479,7 @@ function Dashboard({
                 <th>录取结果</th>
                 <th>查询状态</th>
                 <th>最近查询</th>
-                {loginState.role === "admin" ? <th>操作</th> : null}
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -488,11 +504,13 @@ function Dashboard({
                     {student.queried ? `已查询 ${student.queryCount} 次` : "未查询"}
                   </td>
                   <td>{student.lastQuery ?? "-"}</td>
-                  {loginState.role === "admin" ? (
-                    <td>
-                      <button
-                        onClick={() => {
-                          const studentName = window.prompt("学生姓名", student.studentName);
+                  <td>
+                    <button onClick={() => void resetQuery(student.id, student.studentName)}>重置查询</button>
+                    {loginState.role === "admin" ? (
+                      <>
+                        <button
+                          onClick={() => {
+                            const studentName = window.prompt("学生姓名", student.studentName);
                           if (!studentName) return;
                           const score = window.prompt("成绩", student.score);
                           if (!score) return;
@@ -522,11 +540,12 @@ function Dashboard({
                             void mutate(`/api/admin/students/${student.id}`, "DELETE");
                           }
                         }}
-                      >
-                        删除
-                      </button>
-                    </td>
-                  ) : null}
+                        >
+                          删除
+                        </button>
+                      </>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -463,6 +463,27 @@ export async function updateStudentCourseTime(id: string, preferredCourseTime: s
   return rows[0] ? mapStudent(rows[0]) : null;
 }
 
+export async function resetStudentQuery(id: string, role: Role, teacherName?: string) {
+  await ensureReady();
+
+  if (!hasDatabase()) {
+    const student = memory.students.find((item) => item.id === id);
+    if (!student || (role !== "admin" && student.teacherName !== teacherName)) return null;
+    student.queried = false;
+    student.queryCount = 0;
+    student.lastQuery = null;
+    student.updatedAt = nowText();
+    return student;
+  }
+
+  const rows = (await getSql().query(
+    `UPDATE students SET queried=false, query_count=0, last_query=NULL, updated_at=now()
+     WHERE id=$1 AND ($2='admin' OR teacher_name=$3) RETURNING *`,
+    [id, role, teacherName ?? null]
+  )) as unknown as Record<string, unknown>[];
+  return rows[0] ? mapStudent(rows[0]) : null;
+}
+
 export async function deleteStudent(id: string) {
   await ensureReady();
   if (!hasDatabase()) {
