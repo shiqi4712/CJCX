@@ -16,7 +16,8 @@ const nowText = () => new Date().toISOString();
 export const ALREADY_QUERIED_RESULT = "already_queried" as const;
 
 function buildAdmissionByScore(score: string) {
-  if (score.trim().toUpperCase() === "B") {
+  const normalizedScore = score.trim().replace(/\s+/g, "").toUpperCase();
+  if (["B", "C", "综合20%"].includes(normalizedScore)) {
     return {
       admission: "未录取",
       className: "继续努力",
