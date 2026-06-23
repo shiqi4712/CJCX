@@ -19,7 +19,6 @@ type Overview = {
     queried: boolean;
     queryCount: number;
     lastQuery: string | null;
-    queryOpenAt: string | null;
     preferredCourseTime: string | null;
     published: boolean;
   }>;
@@ -292,12 +291,11 @@ function Dashboard({
   }
 
   function exportQueryStatus() {
-    const headers = ["学生姓名", "成绩", "老师", "开放查询时间", "查询状态", "查询次数", "最近查询", "上课时间", "录取结果"];
+    const headers = ["学生姓名", "成绩", "老师", "查询状态", "查询次数", "最近查询", "上课时间", "录取结果"];
     const rows = studentRows.map((student) => [
       student.studentName,
       student.score,
       student.teacherName,
-      formatDateTime(student.queryOpenAt),
       student.queried ? "已查询" : "未查询",
       String(student.queryCount),
       formatDateTime(student.lastQuery),
@@ -352,7 +350,7 @@ function Dashboard({
         <div className="tool-grid">
           <section className="tool-panel">
             <h3>学生成绩信息</h3>
-            <p>支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、开放查询时间。重复记录会更新。</p>
+            <p>支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名。重复记录会更新。</p>
             <input ref={studentImportRef} type="file" accept=".xlsx,.csv" />
             <button onClick={() => uploadFile("/api/admin/students/import", studentImportRef.current, "学生成绩")}>
               导入学生成绩
@@ -505,7 +503,6 @@ function Dashboard({
                 <th>学生姓名</th>
                 <th>成绩</th>
                 <th>老师</th>
-                <th>开放查询时间</th>
                 <th>上课时间</th>
                 <th>录取结果</th>
                 <th>查询状态</th>
@@ -529,7 +526,6 @@ function Dashboard({
                   <td>{student.studentName}</td>
                   <td>{student.score}</td>
                   <td>{student.teacherName}</td>
-                  <td>{formatDateTime(student.queryOpenAt) || "立即开放"}</td>
                   <td>{student.preferredCourseTime ?? "-"}</td>
                   <td>{student.admission}</td>
                   <td className={student.queried ? "done" : "pending"}>

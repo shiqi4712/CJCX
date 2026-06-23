@@ -15,7 +15,6 @@ import {
   deleteStudents,
   deleteTeachers,
   ALREADY_QUERIED_RESULT,
-  QUERY_NOT_OPEN_RESULT,
   resetStudentQuery,
   resetMemoryStoreForTests
 } from "../lib/store";
@@ -47,13 +46,11 @@ test("rate limiting blocks requests after the configured allowance", async () =>
 });
 
 test("CSV import supports quoted fields and teacher assignment", async () => {
-  const csv = new File([['学生姓名,成绩,老师姓名,开放查询时间', '"张小明",A,王老师,2026-06-23 18:00'].join("\n")], "students.csv", {
+  const csv = new File([['学生姓名,成绩,老师姓名', '"张小明",A,王老师'].join("\n")], "students.csv", {
     type: "text/csv"
   });
   const rows = toStudentRows(await parseSheetFile(csv));
-  assert.deepEqual(rows, [
-    { studentName: "张小明", score: "A", teacherName: "王老师", queryOpenAt: "2026-06-23 18:00" }
-  ]);
+  assert.deepEqual(rows, [{ studentName: "张小明", score: "A", teacherName: "王老师" }]);
 });
 
 test("duplicate imports update records and teachers only see assigned students", async () => {
@@ -81,9 +78,7 @@ test("duplicate imports update records and teachers only see assigned students",
 test("same-name query returns the earliest published record and records status", async () => {
   const result = await queryStudentByName("张小明");
   assert.notEqual(result, ALREADY_QUERIED_RESULT);
-  assert.notEqual(result, QUERY_NOT_OPEN_RESULT);
   if (result === ALREADY_QUERIED_RESULT) throw new Error("first query should return student");
-  if (result === QUERY_NOT_OPEN_RESULT) throw new Error("first query should be open");
   assert.equal(result?.teacherName, "王老师");
   assert.equal(result?.queryCount, 1);
   const overview = await getOverview("admin");
@@ -106,36 +101,9 @@ test("teacher can reset assigned student query eligibility", async () => {
 
   const result = await queryStudentByName("张小明");
   assert.notEqual(result, ALREADY_QUERIED_RESULT);
-  assert.notEqual(result, QUERY_NOT_OPEN_RESULT);
   if (result === ALREADY_QUERIED_RESULT) throw new Error("query after reset should return student");
-  if (result === QUERY_NOT_OPEN_RESULT) throw new Error("query after reset should be open");
   assert.equal(result?.queryCount, 1);
   assert.equal(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
-});
-
-test("query open time blocks early parent queries", async () => {
-  resetMemoryStoreForTests();
-  await importStudents([
-    {
-      studentName: "定时开放学生",
-      score: "A+",
-      teacherName: "未分配老师",
-      queryOpenAt: "2099-01-01 10:00"
-    }
-  ]);
-  assert.equal(await queryStudentByName("定时开放学生"), QUERY_NOT_OPEN_RESULT);
-
-  await importStudents([
-    {
-      studentName: "定时开放学生",
-      score: "A+",
-      teacherName: "未分配老师",
-      queryOpenAt: "2000-01-01 10:00"
-    }
-  ]);
-  const result = await queryStudentByName("定时开放学生");
-  assert.notEqual(result, QUERY_NOT_OPEN_RESULT);
-  assert.notEqual(result, ALREADY_QUERIED_RESULT);
 });
 
 test("bulk delete removes selected teachers and students", async () => {

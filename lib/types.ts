@@ -12,7 +12,6 @@ export type Student = {
   queried: boolean;
   queryCount: number;
   lastQuery: string | null;
-  queryOpenAt: string | null;
   preferredCourseTime: string | null;
   published: boolean;
   createdAt: string;
@@ -42,7 +41,6 @@ export type SheetStudentRow = {
   studentName: string;
   score: string;
   teacherName: string;
-  queryOpenAt?: string | null;
 };
 
 export type SheetTeacherRow = {

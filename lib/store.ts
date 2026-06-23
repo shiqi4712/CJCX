@@ -14,31 +14,6 @@ import type {
 const normalizeName = (value: string) => value.trim().replace(/\s+/g, "").toLowerCase();
 const nowText = () => new Date().toISOString();
 export const ALREADY_QUERIED_RESULT = "already_queried" as const;
-export const QUERY_NOT_OPEN_RESULT = "query_not_open" as const;
-
-function parseQueryOpenAt(value: string | null) {
-  if (!value) return null;
-  const normalized = value.trim().replace(/[./]/g, "-").replace("T", " ");
-  const match = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::\d{1,2})?)?$/);
-  if (!match) return null;
-
-  const [, year, month, day, hour = "0", minute = "0"] = match;
-  const date = new Date(Date.UTC(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour) - 8,
-    Number(minute),
-    0,
-    0
-  ));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function isQueryOpen(queryOpenAt: string | null) {
-  const date = parseQueryOpenAt(queryOpenAt);
-  return !date || date.getTime() <= Date.now();
-}
 
 function buildAdmissionByScore(score: string) {
   if (score.trim().toUpperCase() === "B") {
@@ -116,7 +91,6 @@ function mapStudent(row: Record<string, unknown>): Student {
     queried: Boolean(row.queried),
     queryCount: Number(row.query_count),
     lastQuery: row.last_query ? new Date(String(row.last_query)).toISOString() : null,
-    queryOpenAt: row.query_open_at ? new Date(String(row.query_open_at)).toISOString() : null,
     preferredCourseTime: row.preferred_course_time ? String(row.preferred_course_time) : null,
     published: Boolean(row.published),
     createdAt: new Date(String(row.created_at)).toISOString(),
@@ -150,7 +124,6 @@ export async function queryStudentByName(studentName: string) {
       queriedAt
     });
     if (!student) return null;
-    if (!isQueryOpen(student.queryOpenAt)) return QUERY_NOT_OPEN_RESULT;
     if (student.queried) return ALREADY_QUERIED_RESULT;
     student.queried = true;
     student.queryCount += 1;
@@ -175,9 +148,6 @@ export async function queryStudentByName(studentName: string) {
       [logId, studentName]
     );
     return null;
-  }
-  if (row.query_open_at && new Date(String(row.query_open_at)).getTime() > Date.now()) {
-    return QUERY_NOT_OPEN_RESULT;
   }
   if (Boolean(row.queried)) {
     await sql.query(
@@ -297,7 +267,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
           student.teacherName === (teacherName ?? "未分配老师")
       );
       if (existing) {
-        Object.assign(existing, { score: row.score, queryOpenAt: row.queryOpenAt ?? null, ...admission, updatedAt: nowText() });
+        Object.assign(existing, { score: row.score, ...admission, updatedAt: nowText() });
         updatedCount += 1;
       } else {
         const time = nowText();
@@ -310,7 +280,6 @@ export async function importStudents(rows: SheetStudentRow[]) {
           queried: false,
           queryCount: 0,
           lastQuery: null,
-          queryOpenAt: row.queryOpenAt ?? null,
           preferredCourseTime: null,
           published: true,
           createdAt: time,
@@ -338,7 +307,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
       if (existing[0]) {
         await sql.query(
           `UPDATE students SET student_name=$2, score=$3, admission=$4, class_name=$5,
-             detail=$6, advice=$7, query_open_at=$8, updated_at=now() WHERE id=$1`,
+             detail=$6, advice=$7, updated_at=now() WHERE id=$1`,
           [
             existing[0].id,
             row.studentName,
@@ -346,8 +315,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
             admission.admission,
             admission.className,
             admission.detail,
-            admission.advice,
-            parseQueryOpenAt(row.queryOpenAt ?? null)
+            admission.advice
           ]
         );
         updatedCount += 1;
@@ -357,13 +325,12 @@ export async function importStudents(rows: SheetStudentRow[]) {
 
     const result = (await sql.query(
       `INSERT INTO students (
-         id, student_name, normalized_name, teacher_name, score, admission, class_name, detail, advice, query_open_at
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         id, student_name, normalized_name, teacher_name, score, admission, class_name, detail, advice
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        ON CONFLICT (normalized_name, teacher_name) DO UPDATE SET
          student_name = EXCLUDED.student_name, score = EXCLUDED.score,
          admission = EXCLUDED.admission, class_name = EXCLUDED.class_name,
-         detail = EXCLUDED.detail, advice = EXCLUDED.advice,
-         query_open_at = EXCLUDED.query_open_at, updated_at = now()
+         detail = EXCLUDED.detail, advice = EXCLUDED.advice, updated_at = now()
        RETURNING (xmax = 0) AS inserted`,
       [
         randomUUID(),
@@ -374,8 +341,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
         admission.admission,
         admission.className,
         admission.detail,
-        admission.advice,
-        parseQueryOpenAt(row.queryOpenAt ?? null)
+        admission.advice
       ]
     )) as unknown as Array<{ inserted: boolean }>;
     result[0]?.inserted ? (importedCount += 1) : (updatedCount += 1);
