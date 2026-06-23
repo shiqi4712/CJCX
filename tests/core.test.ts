@@ -75,19 +75,27 @@ test("duplicate imports update records and teachers only see assigned students",
   assert.equal(await login("王老师", "abc123").then(Boolean), true);
 });
 
-test("B C and 综合20% scores are not admitted", async () => {
+test("only S A A+ and 前10% scores are admitted", async () => {
   await importStudents([
+    { studentName: "等级S学生", score: "S", teacherName: "未分配老师" },
+    { studentName: "等级A+学生", score: "A+", teacherName: "未分配老师" },
+    { studentName: "前十学生", score: "前10%", teacherName: "未分配老师" },
     { studentName: "等级B学生", score: "B", teacherName: "未分配老师" },
     { studentName: "等级C学生", score: "C", teacherName: "未分配老师" },
     { studentName: "综合学生", score: "综合20%", teacherName: "未分配老师" },
-    { studentName: "等级A学生", score: "A", teacherName: "未分配老师" }
+    { studentName: "等级A学生", score: "A", teacherName: "未分配老师" },
+    { studentName: "未知学生", score: "优秀", teacherName: "未分配老师" }
   ]);
 
   const overview = await getOverview("admin");
+  assert.equal(overview.students.find((student) => student.studentName === "等级S学生")?.admission, "已录取");
+  assert.equal(overview.students.find((student) => student.studentName === "等级A学生")?.admission, "已录取");
+  assert.equal(overview.students.find((student) => student.studentName === "等级A+学生")?.admission, "已录取");
+  assert.equal(overview.students.find((student) => student.studentName === "前十学生")?.admission, "已录取");
   assert.equal(overview.students.find((student) => student.studentName === "等级B学生")?.admission, "未录取");
   assert.equal(overview.students.find((student) => student.studentName === "等级C学生")?.admission, "未录取");
   assert.equal(overview.students.find((student) => student.studentName === "综合学生")?.admission, "未录取");
-  assert.equal(overview.students.find((student) => student.studentName === "等级A学生")?.admission, "已录取");
+  assert.equal(overview.students.find((student) => student.studentName === "未知学生")?.admission, "未录取");
 });
 
 test("same-name query returns the earliest published record and records status", async () => {
