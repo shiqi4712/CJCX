@@ -19,6 +19,7 @@ type Overview = {
     queried: boolean;
     queryCount: number;
     lastQuery: string | null;
+    queryOpenAt: string | null;
     preferredCourseTime: string | null;
     published: boolean;
   }>;
@@ -290,6 +291,32 @@ function Dashboard({
     setStatus("已生成并下载个性化学习方案压缩包");
   }
 
+  function exportQueryStatus() {
+    const headers = ["学生姓名", "成绩", "老师", "开放查询时间", "查询状态", "查询次数", "最近查询", "上课时间", "录取结果"];
+    const rows = studentRows.map((student) => [
+      student.studentName,
+      student.score,
+      student.teacherName,
+      formatDateTime(student.queryOpenAt),
+      student.queried ? "已查询" : "未查询",
+      String(student.queryCount),
+      formatDateTime(student.lastQuery),
+      student.preferredCourseTime ?? "",
+      student.admission
+    ]);
+    const csv = [headers, ...rows].map((row) => row.map(toCsvCell).join(",")).join("\r\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "学生查询情况.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setStatus("已导出学生查询情况");
+  }
+
   const stats = overview?.stats;
   const teacherIds = teacherRows.map((teacher) => teacher.id);
   const studentIds = studentRows.map((student) => student.id);
@@ -325,7 +352,7 @@ function Dashboard({
         <div className="tool-grid">
           <section className="tool-panel">
             <h3>学生成绩信息</h3>
-            <p>支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名。重复记录会更新。</p>
+            <p>支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、开放查询时间。重复记录会更新。</p>
             <input ref={studentImportRef} type="file" accept=".xlsx,.csv" />
             <button onClick={() => uploadFile("/api/admin/students/import", studentImportRef.current, "学生成绩")}>
               导入学生成绩
@@ -446,16 +473,19 @@ function Dashboard({
         <div className="table-panel-head">
           <h3>学生查询状态</h3>
           {isAdmin ? (
-            <button
-              disabled={selectedStudentIds.length === 0}
-              onClick={() =>
-                void bulkDelete("/api/admin/students/bulk-delete", selectedStudentIds, "学生成绩", () =>
-                  setSelectedStudentIds([])
-                )
-              }
-            >
-              批量删除学员成绩（{selectedStudentIds.length}）
-            </button>
+            <div className="table-actions">
+              <button onClick={exportQueryStatus}>导出查询情况</button>
+              <button
+                disabled={selectedStudentIds.length === 0}
+                onClick={() =>
+                  void bulkDelete("/api/admin/students/bulk-delete", selectedStudentIds, "学生成绩", () =>
+                    setSelectedStudentIds([])
+                  )
+                }
+              >
+                批量删除学员成绩（{selectedStudentIds.length}）
+              </button>
+            </div>
           ) : null}
         </div>
         <div className="table-wrap">
@@ -475,6 +505,7 @@ function Dashboard({
                 <th>学生姓名</th>
                 <th>成绩</th>
                 <th>老师</th>
+                <th>开放查询时间</th>
                 <th>上课时间</th>
                 <th>录取结果</th>
                 <th>查询状态</th>
@@ -498,6 +529,7 @@ function Dashboard({
                   <td>{student.studentName}</td>
                   <td>{student.score}</td>
                   <td>{student.teacherName}</td>
+                  <td>{formatDateTime(student.queryOpenAt) || "立即开放"}</td>
                   <td>{student.preferredCourseTime ?? "-"}</td>
                   <td>{student.admission}</td>
                   <td className={student.queried ? "done" : "pending"}>
@@ -563,4 +595,20 @@ function Metric({ label, value }: { label: string; value: number }) {
       <span>{label}</span>
     </div>
   );
+}
+
+function toCsvCell(value: string) {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hour}:${minute}`;
 }

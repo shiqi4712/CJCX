@@ -73,6 +73,7 @@ async function initializeSchema() {
       queried boolean NOT NULL DEFAULT false,
       query_count integer NOT NULL DEFAULT 0,
       last_query timestamptz,
+      query_open_at timestamptz,
       preferred_course_time varchar(80),
       published boolean NOT NULL DEFAULT true,
       created_at timestamptz NOT NULL DEFAULT now(),
@@ -82,6 +83,7 @@ async function initializeSchema() {
   `);
 
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS preferred_course_time varchar(80)");
+  await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS query_open_at timestamptz");
 
   await sql.query(`
     CREATE TABLE IF NOT EXISTS query_logs (

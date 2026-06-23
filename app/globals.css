@@ -598,11 +598,19 @@ button {
   margin-bottom: 14px;
 }
 
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .table-panel-head h3 {
   margin: 0;
 }
 
-.table-panel-head button {
+.table-panel-head button,
+.table-actions button {
   min-height: 38px;
   border: 0;
   border-radius: 8px;
@@ -612,7 +620,8 @@ button {
   font-weight: 800;
 }
 
-.table-panel-head button:disabled {
+.table-panel-head button:disabled,
+.table-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }

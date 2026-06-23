@@ -168,9 +168,38 @@ export function toStudentRows(rows: RecordRow[]): SheetStudentRow[] {
     .map((row) => ({
       studentName: String(row["学生姓名"] ?? "").trim(),
       score: String(row["成绩"] ?? "").trim(),
-      teacherName: String(row["老师姓名"] ?? "未分配老师").trim() || "未分配老师"
+      teacherName: String(row["老师姓名"] ?? "未分配老师").trim() || "未分配老师",
+      queryOpenAt: normalizeQueryOpenAt(
+        row["开放查询时间"] ?? row["查询开放时间"] ?? row["开放时间"] ?? row["几点开放查询"]
+      )
     }))
     .filter((row) => row.studentName && row.score);
+}
+
+function normalizeQueryOpenAt(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") return excelDateToLocalDateTime(value);
+
+  const text = String(value).trim();
+  if (!text) return null;
+
+  const normalized = text.replace(/[./]/g, "-").replace("T", " ");
+  const match = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::\d{1,2})?)?$/);
+  if (!match) return text;
+
+  const [, year, month, day, hour = "0", minute = "0"] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")} ${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
+
+function excelDateToLocalDateTime(value: number) {
+  const epoch = Date.UTC(1899, 11, 30);
+  const date = new Date(epoch + value * 24 * 60 * 60 * 1000);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const hour = String(date.getUTCHours()).padStart(2, "0");
+  const minute = String(date.getUTCMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hour}:${minute}`;
 }
 
 export function toTeacherRows(rows: RecordRow[]): SheetTeacherRow[] {
