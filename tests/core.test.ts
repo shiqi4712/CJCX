@@ -107,6 +107,16 @@ test("same-name query returns the earliest published record and records status",
   const overview = await getOverview("admin");
   assert.equal(overview.queryLogs[0].resultStatus, "success");
 
+  const secondQuery = await queryStudentByName("张小明");
+  assert.notEqual(secondQuery, ALREADY_QUERIED_RESULT);
+  if (secondQuery === ALREADY_QUERIED_RESULT) throw new Error("second query should return student");
+  assert.equal(secondQuery?.queryCount, 2);
+
+  const thirdQuery = await queryStudentByName("张小明");
+  assert.notEqual(thirdQuery, ALREADY_QUERIED_RESULT);
+  if (thirdQuery === ALREADY_QUERIED_RESULT) throw new Error("third query should return student");
+  assert.equal(thirdQuery?.queryCount, 3);
+
   assert.equal(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
 
   assert.equal(await queryStudentByName("不存在"), null);
@@ -126,6 +136,8 @@ test("teacher can reset assigned student query eligibility", async () => {
   assert.notEqual(result, ALREADY_QUERIED_RESULT);
   if (result === ALREADY_QUERIED_RESULT) throw new Error("query after reset should return student");
   assert.equal(result?.queryCount, 1);
+  assert.notEqual(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
+  assert.notEqual(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
   assert.equal(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
 });
 

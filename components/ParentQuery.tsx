@@ -24,14 +24,14 @@ export function ParentQuery() {
 
   return (
     <main className="parent-shell">
-      <section className="query-hero" aria-label="英才班录取结果查询">
+      <section className="query-hero" aria-label="科特班·英才计划录取结果查询">
         <header className="brand-strip">
           <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
         </header>
 
         <div className="hero-copy">
           <p>编程猫在线教育中心</p>
-          <h1>英才班录取结果查询</h1>
+          <h1>科特班·英才计划录取结果查询</h1>
           <span>输入学员姓名，查看本次选拔录取结果</span>
         </div>
 

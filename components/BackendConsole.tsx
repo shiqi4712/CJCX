@@ -91,7 +91,7 @@ export function BackendConsole({ title, defaultAccount }: { title: string; defau
         <div>
           <p>学生数据 · 老师账号 · 查询状态 · 方案导出</p>
           <h1>{title}</h1>
-          <span>英才班录取查询系统</span>
+          <span>科特班·英才计划录取查询系统</span>
         </div>
       </section>
 
@@ -195,7 +195,7 @@ function Dashboard({
   }
 
   async function resetQuery(studentId: string, studentName: string) {
-    if (!window.confirm(`确认重置 ${studentName} 的查询资格？重置后家长可以再次查询 1 次。`)) {
+    if (!window.confirm(`确认重置 ${studentName} 的查询资格？重置后家长可以重新查询 3 次。`)) {
       return;
     }
 
@@ -206,7 +206,7 @@ function Dashboard({
       return;
     }
 
-    setStatus(`${studentName} 已重置，可再次查询 1 次`);
+    setStatus(`${studentName} 已重置，可重新查询 3 次`);
     await refreshOverview();
   }
 

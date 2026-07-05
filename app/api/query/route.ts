@@ -3,7 +3,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { ALREADY_QUERIED_RESULT, queryStudentByName } from "@/lib/store";
 import { cleanName } from "@/lib/validation";
 
-const ALREADY_QUERIED_MESSAGE = "已经查询录取结果 请联系老师获取录取函";
+const ALREADY_QUERIED_MESSAGE = "查询次数已用完 请联系老师获取录取函";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { studentName?: string } | null;

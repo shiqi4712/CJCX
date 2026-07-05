@@ -67,7 +67,7 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
       <div className="certificate-frame">
         <header className="certificate-title">
           <span />
-          <h2>{admitted ? "录取结果" : "查询结果"}</h2>
+          <h2>{admitted ? "班级录取通知书" : "查询结果"}</h2>
           <span />
         </header>
 
@@ -75,7 +75,9 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
           <div className="invitation-head">
             <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
             <p>北大 - 点猫科技人工智能教育联合实验室</p>
-            <h3>{admitted ? "编程猫英才班" : "编程猫学习建议"}</h3>
+            <div className="program-line">
+              <strong>{admitted ? "编程猫科特班·英才计划" : "编程猫学习建议"}</strong>
+            </div>
             <h4>{admitted ? "班级录取通知书" : "继续加油"}</h4>
           </div>
           <div className="invitation-body">
@@ -84,13 +86,13 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
                 <p className="letter-kicker">恭喜</p>
                 <strong className="letter-student">{result.studentName}</strong>
                 <p className="letter-copy">
-                  同学获得英才班录取资格，本期综合成绩
+                  同学获得科特班·英才计划录取资格，本期综合成绩
                   <b>{result.score}</b>
                   ，已录取
-                  <b>{result.recommendedClass}</b>
+                  <b>科特班</b>
                   。
                 </p>
-                <p className="letter-status">已获得英才班录取资格</p>
+                <p className="letter-status">已获得科特班·英才计划录取资格</p>
                 <p className="letter-note">{result.advice}</p>
               </>
             ) : (

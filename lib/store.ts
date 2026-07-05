@@ -14,6 +14,7 @@ import type {
 const normalizeName = (value: string) => value.trim().replace(/\s+/g, "").toLowerCase();
 const nowText = () => new Date().toISOString();
 export const ALREADY_QUERIED_RESULT = "already_queried" as const;
+const MAX_PARENT_QUERY_COUNT = 3;
 
 function buildAdmissionByScore(score: string) {
   const normalizedScore = score.trim().replace(/\s+/g, "").toUpperCase();
@@ -28,8 +29,8 @@ function buildAdmissionByScore(score: string) {
 
   return {
     admission: "已录取",
-    className: "英才班",
-    detail: "恭喜你在编程猫英才班选拔中获得英才班录取资格。",
+    className: "科特班·英才计划",
+    detail: "恭喜你在编程猫科特班·英才计划选拔中获得录取资格。",
     advice: "期待你的加入，一起开启编程之旅！"
   };
 }
@@ -125,9 +126,9 @@ export async function queryStudentByName(studentName: string) {
       queriedAt
     });
     if (!student) return null;
-    if (student.queried) return ALREADY_QUERIED_RESULT;
-    student.queried = true;
+    if (student.queryCount >= MAX_PARENT_QUERY_COUNT) return ALREADY_QUERIED_RESULT;
     student.queryCount += 1;
+    student.queried = student.queryCount >= MAX_PARENT_QUERY_COUNT;
     student.lastQuery = queriedAt;
     return student;
   }
@@ -150,7 +151,7 @@ export async function queryStudentByName(studentName: string) {
     );
     return null;
   }
-  if (Boolean(row.queried)) {
+  if (Number(row.query_count) >= MAX_PARENT_QUERY_COUNT) {
     await sql.query(
       `INSERT INTO query_logs (id, input_student_name, matched_student_id, result_status)
        VALUES ($1, $2, $3, 'success')`,
@@ -160,9 +161,10 @@ export async function queryStudentByName(studentName: string) {
   }
 
   const updated = (await sql.query(
-    `UPDATE students SET queried = true, query_count = query_count + 1,
+    `UPDATE students SET query_count = query_count + 1,
+       queried = query_count + 1 >= $2,
        last_query = now(), updated_at = now() WHERE id = $1 RETURNING *`,
-    [row.id]
+    [row.id, MAX_PARENT_QUERY_COUNT]
   )) as unknown as Record<string, unknown>[];
   await sql.query(
     `INSERT INTO query_logs (id, input_student_name, matched_student_id, result_status)
