@@ -73,6 +73,7 @@ test("duplicate imports update records and teachers only see assigned students",
   assert.equal(teacherOverview.students[0].score, "A+");
   assert.equal((await getOverview("teacher", "李老师")).students.length, 1);
   assert.equal(await login("王老师", "abc123").then(Boolean), true);
+  assert.equal(await login("jiangxiao", "df666").then((user) => user?.role), "admin");
 });
 
 test("only S A A+ and 前10% scores are admitted", async () => {
