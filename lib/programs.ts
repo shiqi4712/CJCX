@@ -5,11 +5,12 @@ export type ProgramType = (typeof PROGRAM_TYPES)[number];
 export function normalizeProgramType(value?: string | null): ProgramType {
   const normalized = String(value ?? "")
     .trim()
+    .toLowerCase()
     .replace(/\s+/g, "")
     .replace(/·?英才计划/g, "");
 
-  if (normalized.includes("科特")) return "科特班";
-  if (normalized.includes("育才")) return "育才班";
+  if (normalized.includes("科特") || normalized.includes("kete")) return "科特班";
+  if (normalized.includes("育才") || normalized.includes("yucai")) return "育才班";
   return "英才班";
 }
 
