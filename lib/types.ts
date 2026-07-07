@@ -7,6 +7,7 @@ export type Student = {
   studentName: string;
   teacherName: string;
   score: string;
+  overallScore: string | null;
   programType: ProgramType;
   admission: string;
   className: string;
@@ -43,6 +44,7 @@ export type QueryLog = {
 export type SheetStudentRow = {
   studentName: string;
   score: string;
+  overallScore?: string | null;
   teacherName: string;
   programType?: ProgramType;
 };

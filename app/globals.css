@@ -454,6 +454,93 @@ button {
   font-size: clamp(15px, 3.5vw, 18px);
 }
 
+.admission-archive {
+  position: relative;
+  z-index: 1;
+  margin: 12px 0 0;
+  padding: 16px 14px;
+  border: 1px solid rgba(218, 177, 97, 0.82);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.98), rgba(255, 247, 232, 0.96)),
+    radial-gradient(circle at 88% 8%, rgba(217, 17, 32, 0.08), transparent 34%);
+  box-shadow: 0 12px 24px rgba(104, 33, 12, 0.1);
+}
+
+.archive-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.archive-head h3,
+.archive-head p,
+.archive-row p {
+  margin: 0;
+}
+
+.archive-head h3 {
+  color: #9f1d1d;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.archive-head p {
+  margin-top: 4px;
+  color: #7c5630;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.archive-head > span {
+  width: 54px;
+  height: 2px;
+  flex: 0 0 auto;
+  background: linear-gradient(90deg, #d1a043, transparent);
+}
+
+.archive-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.archive-row {
+  display: grid;
+  gap: 5px;
+  min-height: 74px;
+  padding: 10px 12px;
+  border: 1px solid rgba(231, 201, 139, 0.72);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.archive-row.wide {
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+
+.archive-row span {
+  color: #8a4a1a;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.archive-row p {
+  color: #4b3024;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.archive-row p.strong {
+  color: #c90f1a;
+  font-size: 17px;
+  font-weight: 900;
+}
+
 .course-time-card {
   position: relative;
   z-index: 1;

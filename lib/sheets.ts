@@ -169,6 +169,7 @@ export function toStudentRows(rows: RecordRow[]): SheetStudentRow[] {
     .map((row) => ({
       studentName: String(row["学生姓名"] ?? "").trim(),
       score: String(row["成绩"] ?? "").trim(),
+      overallScore: String(row["综合得分"] ?? row["分数"] ?? row["得分"] ?? row["综合分数"] ?? row["总分"] ?? "").trim() || null,
       teacherName: String(row["老师姓名"] ?? "未分配老师").trim() || "未分配老师",
       programType: normalizeProgramType(String(row["班级类型"] ?? row["班型"] ?? row["录取班级"] ?? row["班级"] ?? ""))
     }))

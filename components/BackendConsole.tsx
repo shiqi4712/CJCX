@@ -15,6 +15,7 @@ type Overview = {
     studentName: string;
     teacherName: string;
     score: string;
+    overallScore: string | null;
     programType: string;
     admission: string;
     queried: boolean;
@@ -292,10 +293,22 @@ function Dashboard({
   }
 
   function exportQueryStatus() {
-    const headers = ["学生姓名", "成绩", "班级类型", "老师", "查询状态", "查询次数", "最近查询", "上课时间", "录取结果"];
+    const headers = [
+      "学生姓名",
+      "成绩",
+      "综合得分",
+      "班级类型",
+      "老师",
+      "查询状态",
+      "查询次数",
+      "最近查询",
+      "上课时间",
+      "录取结果"
+    ];
     const rows = studentRows.map((student) => [
       student.studentName,
       student.score,
+      student.overallScore ?? "",
       student.programType,
       student.teacherName,
       student.queried ? "已查询" : "未查询",
@@ -352,7 +365,9 @@ function Dashboard({
         <div className="tool-grid">
           <section className="tool-panel">
             <h3>学生成绩信息</h3>
-            <p>支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、班级类型。班级类型可填：英才班、科特班、育才班。</p>
+            <p>
+              支持 .xlsx 或 .csv，表头为：学生姓名、成绩、综合得分、老师姓名、班级类型。班级类型可填：英才班、科特班、育才班。
+            </p>
             <input ref={studentImportRef} type="file" accept=".xlsx,.csv" />
             <button onClick={() => uploadFile("/api/admin/students/import", studentImportRef.current, "学生成绩")}>
               导入学生成绩
@@ -504,6 +519,7 @@ function Dashboard({
                 ) : null}
                 <th>学生姓名</th>
                 <th>成绩</th>
+                <th>综合得分</th>
                 <th>班级类型</th>
                 <th>老师</th>
                 <th>上课时间</th>
@@ -528,6 +544,7 @@ function Dashboard({
                   ) : null}
                   <td>{student.studentName}</td>
                   <td>{student.score}</td>
+                  <td>{student.overallScore ?? "-"}</td>
                   <td>{student.programType}</td>
                   <td>{student.teacherName}</td>
                   <td>{student.preferredCourseTime ?? "-"}</td>
@@ -546,6 +563,7 @@ function Dashboard({
                           if (!studentName) return;
                           const score = window.prompt("成绩", student.score);
                           if (!score) return;
+                          const overallScore = window.prompt("综合得分", student.overallScore ?? "");
                           const programType = window.prompt("班级类型：英才班 / 科特班 / 育才班", student.programType);
                           if (!programType) return;
                           const teacherName = window.prompt("老师姓名", student.teacherName);
@@ -553,6 +571,7 @@ function Dashboard({
                           void mutate(`/api/admin/students/${student.id}`, "PATCH", {
                             studentName,
                             score,
+                            overallScore: overallScore || null,
                             programType,
                             teacherName
                           });

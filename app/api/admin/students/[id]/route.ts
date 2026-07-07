@@ -16,6 +16,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const input = {
     ...(body.studentName !== undefined ? { studentName: cleanName(body.studentName) } : {}),
     ...(body.score !== undefined ? { score: cleanScore(body.score) } : {}),
+    ...(body.overallScore !== undefined ? { overallScore: cleanScore(body.overallScore) || null } : {}),
     ...(body.teacherName !== undefined ? { teacherName: cleanName(body.teacherName) || "未分配老师" } : {}),
     ...(body.programType !== undefined ? { programType: normalizeProgramType(String(body.programType)) } : {}),
     ...(typeof body.published === "boolean" ? { published: body.published } : {})

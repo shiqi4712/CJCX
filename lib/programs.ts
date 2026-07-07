@@ -28,3 +28,18 @@ export function getProgramIntro(programType: ProgramType) {
       return "英才班面向综合表现突出的学员，侧重思维训练、竞赛能力与长期学习规划。";
   }
 }
+
+export function getProgramAdmissionDetail(programType: ProgramType) {
+  return `恭喜你在编程猫${getProgramLandingName(programType)}选拔中获得${programType}录取资格。`;
+}
+
+export function getProgramLearningGoal(programType: ProgramType) {
+  switch (programType) {
+    case "科特班":
+      return "围绕科创项目、算法思维与表达展示建立阶段性成长目标。";
+    case "育才班":
+      return "夯实编程基础、保持学习兴趣，建立稳定练习习惯。";
+    default:
+      return "半年三证，达到编程NCT考级二级水平，可参加教育部白名单赛事。";
+  }
+}

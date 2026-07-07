@@ -135,6 +135,7 @@ async function initializePostgresSchema(sql: SqlClient) {
       normalized_name varchar(50) NOT NULL,
       teacher_name varchar(50) REFERENCES teacher_accounts(teacher_name) ON UPDATE CASCADE ON DELETE SET NULL,
       score varchar(30) NOT NULL,
+      overall_score varchar(30),
       program_type varchar(20) NOT NULL DEFAULT '英才班',
       admission varchar(20) NOT NULL,
       class_name varchar(50) NOT NULL,
@@ -153,6 +154,7 @@ async function initializePostgresSchema(sql: SqlClient) {
 
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS preferred_course_time varchar(80)");
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS program_type varchar(20) NOT NULL DEFAULT '英才班'");
+  await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS overall_score varchar(30)");
 
   await sql.query(`
     CREATE TABLE IF NOT EXISTS query_logs (
@@ -189,6 +191,7 @@ async function initializeMySqlSchema(sql: SqlClient) {
       normalized_name varchar(50) NOT NULL,
       teacher_name varchar(50),
       score varchar(30) NOT NULL,
+      overall_score varchar(30),
       program_type varchar(20) NOT NULL DEFAULT '英才班',
       admission varchar(20) NOT NULL,
       class_name varchar(50) NOT NULL,
@@ -209,6 +212,7 @@ async function initializeMySqlSchema(sql: SqlClient) {
 
   await addMySqlColumnIfMissing(sql, "students", "preferred_course_time", "varchar(80)");
   await addMySqlColumnIfMissing(sql, "students", "program_type", "varchar(20) NOT NULL DEFAULT '英才班'");
+  await addMySqlColumnIfMissing(sql, "students", "overall_score", "varchar(30)");
 
   await sql.query(`
     CREATE TABLE IF NOT EXISTS query_logs (

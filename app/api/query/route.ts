@@ -34,6 +34,7 @@ export async function POST(request: Request) {
     studentId: student.id,
     studentName: student.studentName,
     score: student.score,
+    overallScore: student.overallScore,
     programType: student.programType,
     admissionResult: student.admission,
     recommendedClass: student.className,

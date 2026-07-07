@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ensureSchema, getSql, hasDatabase, requireDatabaseInProduction } from "./database";
 import { hashPassword, verifyPassword } from "./passwords";
-import { getProgramLandingName, normalizeProgramType } from "./programs";
+import { getProgramAdmissionDetail, normalizeProgramType } from "./programs";
 import type {
   PublicTeacher,
   QueryLog,
@@ -34,7 +34,7 @@ function buildAdmissionByScore(score: string, inputProgramType?: string | null) 
     programType,
     admission: "已录取",
     className: programType,
-    detail: `恭喜你在编程猫${getProgramLandingName(programType)}选拔中获得${programType}录取资格。`,
+    detail: getProgramAdmissionDetail(programType),
     advice: "期待你的加入，一起开启编程之旅！"
   };
 }
@@ -91,6 +91,7 @@ function mapStudent(row: Record<string, unknown>): Student {
     studentName: String(row.student_name),
     teacherName: row.teacher_name ? String(row.teacher_name) : "未分配老师",
     score: String(row.score),
+    overallScore: row.overall_score ? String(row.overall_score) : null,
     programType: normalizeProgramType(String(row.program_type ?? "")),
     admission: String(row.admission),
     className: String(row.class_name),
@@ -298,7 +299,12 @@ export async function importStudents(rows: SheetStudentRow[]) {
           student.teacherName === (teacherName ?? "未分配老师")
       );
       if (existing) {
-        Object.assign(existing, { score: row.score, ...admission, updatedAt: nowText() });
+        Object.assign(existing, {
+          score: row.score,
+          overallScore: row.overallScore ?? null,
+          ...admission,
+          updatedAt: nowText()
+        });
         updatedCount += 1;
       } else {
         const time = nowText();
@@ -307,6 +313,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
           studentName: row.studentName,
           teacherName: teacherName ?? "未分配老师",
           score: row.score,
+          overallScore: row.overallScore ?? null,
           ...admission,
           queried: false,
           queryCount: 0,
@@ -337,12 +344,13 @@ export async function importStudents(rows: SheetStudentRow[]) {
       )) as unknown as Array<{ id: string }>;
       if (existing[0]) {
         await sql.query(
-          `UPDATE students SET student_name=$2, score=$3, program_type=$4, admission=$5, class_name=$6,
-             detail=$7, advice=$8, updated_at=now() WHERE id=$1`,
+          `UPDATE students SET student_name=$2, score=$3, overall_score=$4, program_type=$5, admission=$6,
+             class_name=$7, detail=$8, advice=$9, updated_at=now() WHERE id=$1`,
           [
             existing[0].id,
             row.studentName,
             row.score,
+            row.overallScore ?? null,
             programType,
             admission.admission,
             admission.className,
@@ -366,12 +374,13 @@ export async function importStudents(rows: SheetStudentRow[]) {
 
       if (existing[0]) {
         await sql.query(
-          `UPDATE students SET student_name=$2, score=$3, program_type=$4, admission=$5, class_name=$6,
-             detail=$7, advice=$8, updated_at=now() WHERE id=$1`,
+          `UPDATE students SET student_name=$2, score=$3, overall_score=$4, program_type=$5, admission=$6,
+             class_name=$7, detail=$8, advice=$9, updated_at=now() WHERE id=$1`,
           [
             existing[0].id,
             row.studentName,
             row.score,
+            row.overallScore ?? null,
             programType,
             admission.admission,
             admission.className,
@@ -383,14 +392,16 @@ export async function importStudents(rows: SheetStudentRow[]) {
       } else {
         await sql.query(
           `INSERT INTO students (
-             id, student_name, normalized_name, teacher_name, score, program_type, admission, class_name, detail, advice
-           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+             id, student_name, normalized_name, teacher_name, score, overall_score, program_type, admission, class_name,
+             detail, advice
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
           [
             randomUUID(),
             row.studentName,
             normalizedName,
             teacherName,
             row.score,
+            row.overallScore ?? null,
             programType,
             admission.admission,
             admission.className,
@@ -405,10 +416,11 @@ export async function importStudents(rows: SheetStudentRow[]) {
 
     const result = (await sql.query(
       `INSERT INTO students (
-         id, student_name, normalized_name, teacher_name, score, program_type, admission, class_name, detail, advice
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         id, student_name, normalized_name, teacher_name, score, overall_score, program_type, admission, class_name,
+         detail, advice
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        ON CONFLICT (normalized_name, teacher_name) DO UPDATE SET
-         student_name = EXCLUDED.student_name, score = EXCLUDED.score,
+         student_name = EXCLUDED.student_name, score = EXCLUDED.score, overall_score = EXCLUDED.overall_score,
          program_type = EXCLUDED.program_type,
          admission = EXCLUDED.admission, class_name = EXCLUDED.class_name,
          detail = EXCLUDED.detail, advice = EXCLUDED.advice, updated_at = now()
@@ -419,6 +431,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
         normalizeName(row.studentName),
         teacherName,
         row.score,
+        row.overallScore ?? null,
         programType,
         admission.admission,
         admission.className,
@@ -500,7 +513,12 @@ export async function importTeachers(rows: SheetTeacherRow[]) {
 
 export async function updateStudent(
   id: string,
-  input: Partial<Pick<Student, "studentName" | "score" | "teacherName" | "programType" | "published" | "preferredCourseTime">>
+  input: Partial<
+    Pick<
+      Student,
+      "studentName" | "score" | "overallScore" | "teacherName" | "programType" | "published" | "preferredCourseTime"
+    >
+  >
 ) {
   await ensureReady();
   const current = (await getOverview("admin")).students.find((student) => student.id === id);
@@ -508,6 +526,7 @@ export async function updateStudent(
 
   const studentName = input.studentName ?? current.studentName;
   const score = input.score ?? current.score;
+  const overallScore = input.overallScore !== undefined ? input.overallScore : current.overallScore;
   const teacherName = input.teacherName ?? current.teacherName;
   const programType = normalizeProgramType(input.programType ?? current.programType);
   const published = input.published ?? current.published;
@@ -518,6 +537,7 @@ export async function updateStudent(
     Object.assign(current, {
       studentName,
       score,
+      overallScore,
       teacherName,
       published,
       preferredCourseTime,
@@ -532,15 +552,16 @@ export async function updateStudent(
   const sql = getSql();
   if (sql.dialect === "mysql") {
     await sql.query(
-      `UPDATE students SET student_name=$2, normalized_name=$3, score=$4, teacher_name=$5,
-         program_type=$6, published=$7, admission=$8, class_name=$9, detail=$10, advice=$11,
-         preferred_course_time=$12, updated_at=now()
+      `UPDATE students SET student_name=$2, normalized_name=$3, score=$4, overall_score=$5, teacher_name=$6,
+         program_type=$7, published=$8, admission=$9, class_name=$10, detail=$11, advice=$12,
+         preferred_course_time=$13, updated_at=now()
        WHERE id=$1`,
       [
         id,
         studentName,
         normalizeName(studentName),
         score,
+        overallScore,
         teacherName === "未分配老师" ? null : teacherName,
         programType,
         published,
@@ -559,15 +580,16 @@ export async function updateStudent(
   }
 
   const rows = (await sql.query(
-    `UPDATE students SET student_name=$2, normalized_name=$3, score=$4, teacher_name=$5,
-       program_type=$6, published=$7, admission=$8, class_name=$9, detail=$10, advice=$11,
-       preferred_course_time=$12, updated_at=now()
+    `UPDATE students SET student_name=$2, normalized_name=$3, score=$4, overall_score=$5, teacher_name=$6,
+       program_type=$7, published=$8, admission=$9, class_name=$10, detail=$11, advice=$12,
+       preferred_course_time=$13, updated_at=now()
      WHERE id=$1 RETURNING *`,
     [
       id,
       studentName,
       normalizeName(studentName),
       score,
+      overallScore,
       teacherName === "未分配老师" ? null : teacherName,
       programType,
       published,

@@ -2,12 +2,19 @@
 
 import { useState } from "react";
 import { COURSE_DAYS, COURSE_SLOTS } from "@/lib/course-times";
-import { getProgramIntro, getProgramLandingName, normalizeProgramType } from "@/lib/programs";
+import {
+  getProgramAdmissionDetail,
+  getProgramIntro,
+  getProgramLandingName,
+  getProgramLearningGoal,
+  normalizeProgramType
+} from "@/lib/programs";
 
 export type QueryResult = {
   studentId: string;
   studentName: string;
   score: string;
+  overallScore?: string | null;
   programType?: string;
   admissionResult: string;
   recommendedClass: string;
@@ -32,6 +39,15 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
   const programType = normalizeProgramType(result.programType ?? result.recommendedClass);
   const programLandingName = getProgramLandingName(programType);
   const certificateTitle = `${programType}录取通知书`;
+  const archiveRows = [
+    { label: "学生姓名", value: result.studentName, tone: "strong" },
+    { label: "综合成绩", value: result.score, tone: "strong" },
+    { label: "综合得分", value: result.overallScore || "未填写" },
+    { label: "录取结果", value: programType, tone: "strong" },
+    { label: "录取详情", value: getProgramAdmissionDetail(programType), wide: true },
+    { label: "学习目标", value: getProgramLearningGoal(programType), wide: true },
+    { label: `${programType}简介`, value: getProgramIntro(programType), wide: true }
+  ];
   const savedCourseTime = splitCourseTime(result.preferredCourseTime);
   const [selectedDay, setSelectedDay] = useState(savedCourseTime.day);
   const [selectedSlot, setSelectedSlot] = useState(savedCourseTime.slot);
@@ -111,51 +127,72 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
         </article>
 
         {admitted ? (
-          <section className="course-time-card" aria-label="选择上课时间">
-            <div className="course-time-head">
-              <h3>选择上课安排</h3>
-              <p>请选择日期和时段，确认后老师会优先核对。</p>
-            </div>
+          <>
+            <section className="admission-archive" aria-label="录取档案">
+              <div className="archive-head">
+                <div>
+                  <h3>录取档案</h3>
+                  <p>展示成绩、录取详情与后续学习目标</p>
+                </div>
+                <span />
+              </div>
 
-            <div className="course-picker-group">
-              <span>日期</span>
-              <div className="course-choice-grid days">
-                {COURSE_DAYS.map((day) => (
-                  <button
-                    key={day}
-                    type="button"
-                    className={selectedDay === day ? "active" : ""}
-                    onClick={() => chooseDay(day)}
-                    disabled={saving}
-                  >
-                    {day}
-                  </button>
+              <div className="archive-grid">
+                {archiveRows.map((row) => (
+                  <div key={row.label} className={`archive-row ${row.wide ? "wide" : ""}`}>
+                    <span>{row.label}</span>
+                    <p className={row.tone === "strong" ? "strong" : ""}>{row.value}</p>
+                  </div>
                 ))}
               </div>
-            </div>
+            </section>
 
-            <div className="course-picker-group">
-              <span>时段</span>
-              <div className="course-choice-grid slots">
-                {COURSE_SLOTS.map((slot) => (
-                  <button
-                    key={slot}
-                    type="button"
-                    className={selectedSlot === slot ? "active" : ""}
-                    onClick={() => chooseSlot(slot)}
-                    disabled={saving}
-                  >
-                    {slot}
-                  </button>
-                ))}
+            <section className="course-time-card" aria-label="选择上课时间">
+              <div className="course-time-head">
+                <h3>选择上课安排</h3>
+                <p>请选择日期和时段，确认后老师会优先核对。</p>
               </div>
-            </div>
 
-            <button className="course-confirm" type="button" onClick={() => void saveCourseTime()} disabled={saving}>
-              {saving ? "正在确认..." : "确认选择"}
-            </button>
-            {message ? <span className="course-time-message">{message}</span> : null}
-          </section>
+              <div className="course-picker-group">
+                <span>日期</span>
+                <div className="course-choice-grid days">
+                  {COURSE_DAYS.map((day) => (
+                    <button
+                      key={day}
+                      type="button"
+                      className={selectedDay === day ? "active" : ""}
+                      onClick={() => chooseDay(day)}
+                      disabled={saving}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="course-picker-group">
+                <span>时段</span>
+                <div className="course-choice-grid slots">
+                  {COURSE_SLOTS.map((slot) => (
+                    <button
+                      key={slot}
+                      type="button"
+                      className={selectedSlot === slot ? "active" : ""}
+                      onClick={() => chooseSlot(slot)}
+                      disabled={saving}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button className="course-confirm" type="button" onClick={() => void saveCourseTime()} disabled={saving}>
+                {saving ? "正在确认..." : "确认选择"}
+              </button>
+              {message ? <span className="course-time-message">{message}</span> : null}
+            </section>
+          </>
         ) : null}
 
         <footer className="certificate-footer">
