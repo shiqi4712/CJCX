@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { COURSE_DAYS, COURSE_SLOTS } from "@/lib/course-times";
+import { getProgramIntro, getProgramLandingName, normalizeProgramType } from "@/lib/programs";
 
 export type QueryResult = {
   studentId: string;
   studentName: string;
   score: string;
+  programType?: string;
   admissionResult: string;
   recommendedClass: string;
   admissionDetail: string;
@@ -27,6 +29,9 @@ function splitCourseTime(value: string | null) {
 
 export function AdmissionResult({ result }: { result: QueryResult }) {
   const admitted = result.admissionResult === "已录取";
+  const programType = normalizeProgramType(result.programType ?? result.recommendedClass);
+  const programLandingName = getProgramLandingName(programType);
+  const certificateTitle = `${programType}录取通知书`;
   const savedCourseTime = splitCourseTime(result.preferredCourseTime);
   const [selectedDay, setSelectedDay] = useState(savedCourseTime.day);
   const [selectedSlot, setSelectedSlot] = useState(savedCourseTime.slot);
@@ -67,7 +72,7 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
       <div className="certificate-frame">
         <header className="certificate-title">
           <span />
-          <h2>{admitted ? "班级录取通知书" : "查询结果"}</h2>
+          <h2>{admitted ? certificateTitle : "查询结果"}</h2>
           <span />
         </header>
 
@@ -76,9 +81,9 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
             <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
             <p>北大 - 点猫科技人工智能教育联合实验室</p>
             <div className="program-line">
-              <strong>{admitted ? "编程猫科特班·英才计划" : "编程猫学习建议"}</strong>
+              <strong>{admitted ? programLandingName : "编程猫学习建议"}</strong>
             </div>
-            <h4>{admitted ? "班级录取通知书" : "继续加油"}</h4>
+            <h4>{admitted ? certificateTitle : "继续加油"}</h4>
           </div>
           <div className="invitation-body">
             {admitted ? (
@@ -86,14 +91,14 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
                 <p className="letter-kicker">恭喜</p>
                 <strong className="letter-student">{result.studentName}</strong>
                 <p className="letter-copy">
-                  同学获得科特班·英才计划录取资格，本期综合成绩
+                  本期综合成绩
                   <b>{result.score}</b>
                   ，已录取
-                  <b>科特班</b>
+                  <b>{programType}</b>
                   。
                 </p>
-                <p className="letter-status">已获得科特班·英才计划录取资格</p>
-                <p className="letter-note">{result.advice}</p>
+                <p className="letter-status">已获得{programType}录取资格</p>
+                <p className="letter-note">{getProgramIntro(programType)}</p>
               </>
             ) : (
               <>

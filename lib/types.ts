@@ -1,3 +1,5 @@
+import type { ProgramType } from "./programs";
+
 export type Role = "admin" | "teacher";
 
 export type Student = {
@@ -5,6 +7,7 @@ export type Student = {
   studentName: string;
   teacherName: string;
   score: string;
+  programType: ProgramType;
   admission: string;
   className: string;
   detail: string;
@@ -41,6 +44,7 @@ export type SheetStudentRow = {
   studentName: string;
   score: string;
   teacherName: string;
+  programType?: ProgramType;
 };
 
 export type SheetTeacherRow = {

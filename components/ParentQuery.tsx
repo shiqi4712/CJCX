@@ -1,10 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getProgramLandingName, normalizeProgramType } from "@/lib/programs";
 
 export function ParentQuery() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const programType = normalizeProgramType(searchParams.get("program"));
+  const title = `${getProgramLandingName(programType)}录取结果查询`;
   const [studentName, setStudentName] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,14 +28,14 @@ export function ParentQuery() {
 
   return (
     <main className="parent-shell">
-      <section className="query-hero" aria-label="科特班·英才计划录取结果查询">
+      <section className="query-hero" aria-label={title}>
         <header className="brand-strip">
           <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
         </header>
 
         <div className="hero-copy">
           <p>编程猫在线教育中心</p>
-          <h1>科特班·英才计划录取结果查询</h1>
+          <h1>{title}</h1>
           <span>输入学员姓名，查看本次选拔录取结果</span>
         </div>
 

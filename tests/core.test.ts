@@ -46,11 +46,11 @@ test("rate limiting blocks requests after the configured allowance", async () =>
 });
 
 test("CSV import supports quoted fields and teacher assignment", async () => {
-  const csv = new File([['学生姓名,成绩,老师姓名', '"张小明",A,王老师'].join("\n")], "students.csv", {
+  const csv = new File([['学生姓名,成绩,老师姓名,班级类型', '"张小明",A,王老师,育才班'].join("\n")], "students.csv", {
     type: "text/csv"
   });
   const rows = toStudentRows(await parseSheetFile(csv));
-  assert.deepEqual(rows, [{ studentName: "张小明", score: "A", teacherName: "王老师" }]);
+  assert.deepEqual(rows, [{ studentName: "张小明", score: "A", teacherName: "王老师", programType: "育才班" }]);
 });
 
 test("duplicate imports update records and teachers only see assigned students", async () => {
@@ -74,6 +74,19 @@ test("duplicate imports update records and teachers only see assigned students",
   assert.equal((await getOverview("teacher", "李老师")).students.length, 1);
   assert.equal(await login("王老师", "abc123").then(Boolean), true);
   assert.equal(await login("jiangxiao", "df666").then((user) => user?.role), "admin");
+});
+
+test("student program type controls admitted class display", async () => {
+  await importStudents([
+    { studentName: "英才学生", score: "A+", teacherName: "未分配老师", programType: "英才班" },
+    { studentName: "科特学生", score: "A+", teacherName: "未分配老师", programType: "科特班" },
+    { studentName: "育才学生", score: "A+", teacherName: "未分配老师", programType: "育才班" }
+  ]);
+
+  const overview = await getOverview("admin");
+  assert.equal(overview.students.find((student) => student.studentName === "英才学生")?.className, "英才班");
+  assert.equal(overview.students.find((student) => student.studentName === "科特学生")?.className, "科特班");
+  assert.equal(overview.students.find((student) => student.studentName === "育才学生")?.className, "育才班");
 });
 
 test("only S A A+ and 前10% scores are admitted", async () => {

@@ -15,6 +15,7 @@ type Overview = {
     studentName: string;
     teacherName: string;
     score: string;
+    programType: string;
     admission: string;
     queried: boolean;
     queryCount: number;
@@ -291,10 +292,11 @@ function Dashboard({
   }
 
   function exportQueryStatus() {
-    const headers = ["学生姓名", "成绩", "老师", "查询状态", "查询次数", "最近查询", "上课时间", "录取结果"];
+    const headers = ["学生姓名", "成绩", "班级类型", "老师", "查询状态", "查询次数", "最近查询", "上课时间", "录取结果"];
     const rows = studentRows.map((student) => [
       student.studentName,
       student.score,
+      student.programType,
       student.teacherName,
       student.queried ? "已查询" : "未查询",
       String(student.queryCount),
@@ -335,7 +337,7 @@ function Dashboard({
       </header>
 
       {overview?.storageMode === "memory" ? (
-        <div className="console-message">当前为本地内存模式；部署前配置 DATABASE_URL 后将自动使用 Postgres。</div>
+        <div className="console-message">当前为本地内存模式；部署前配置 DATABASE_URL 后将自动使用数据库。</div>
       ) : null}
 
       <div className="metric-grid">
@@ -350,7 +352,7 @@ function Dashboard({
         <div className="tool-grid">
           <section className="tool-panel">
             <h3>学生成绩信息</h3>
-            <p>支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名。重复记录会更新。</p>
+            <p>支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、班级类型。班级类型可填：英才班、科特班、育才班。</p>
             <input ref={studentImportRef} type="file" accept=".xlsx,.csv" />
             <button onClick={() => uploadFile("/api/admin/students/import", studentImportRef.current, "学生成绩")}>
               导入学生成绩
@@ -502,6 +504,7 @@ function Dashboard({
                 ) : null}
                 <th>学生姓名</th>
                 <th>成绩</th>
+                <th>班级类型</th>
                 <th>老师</th>
                 <th>上课时间</th>
                 <th>录取结果</th>
@@ -525,6 +528,7 @@ function Dashboard({
                   ) : null}
                   <td>{student.studentName}</td>
                   <td>{student.score}</td>
+                  <td>{student.programType}</td>
                   <td>{student.teacherName}</td>
                   <td>{student.preferredCourseTime ?? "-"}</td>
                   <td>{student.admission}</td>
@@ -542,11 +546,14 @@ function Dashboard({
                           if (!studentName) return;
                           const score = window.prompt("成绩", student.score);
                           if (!score) return;
+                          const programType = window.prompt("班级类型：英才班 / 科特班 / 育才班", student.programType);
+                          if (!programType) return;
                           const teacherName = window.prompt("老师姓名", student.teacherName);
                           if (!teacherName) return;
                           void mutate(`/api/admin/students/${student.id}`, "PATCH", {
                             studentName,
                             score,
+                            programType,
                             teacherName
                           });
                         }}
