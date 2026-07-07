@@ -28,7 +28,7 @@ type Overview = {
     role: "admin" | "teacher";
     active: boolean;
   }>;
-  storageMode: "postgres" | "memory";
+  storageMode: "postgres" | "mysql" | "memory";
   session?: LoginState;
 };
 

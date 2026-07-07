@@ -161,6 +161,27 @@ export async function queryStudentByName(studentName: string) {
     return ALREADY_QUERIED_RESULT;
   }
 
+  if (sql.dialect === "mysql") {
+    await sql.query(
+      `UPDATE students SET
+         queried = (query_count + 1 >= $2),
+         query_count = query_count + 1,
+         last_query = now(), updated_at = now()
+       WHERE id = $1`,
+      [row.id, MAX_PARENT_QUERY_COUNT]
+    );
+    const mysqlUpdated = (await sql.query("SELECT * FROM students WHERE id = $1 LIMIT 1", [row.id])) as unknown as Record<
+      string,
+      unknown
+    >[];
+    await sql.query(
+      `INSERT INTO query_logs (id, input_student_name, matched_student_id, result_status)
+       VALUES ($1, $2, $3, 'success')`,
+      [logId, studentName, row.id]
+    );
+    return mapStudent(mysqlUpdated[0]);
+  }
+
   const updated = (await sql.query(
     `UPDATE students SET query_count = query_count + 1,
        queried = query_count + 1 >= $2,
@@ -251,7 +272,7 @@ export async function getOverview(role: Role, teacherName?: string) {
     students,
     teachers,
     queryLogs,
-    storageMode: hasDatabase() ? "postgres" : "memory"
+    storageMode: hasDatabase() ? getSql().dialect : "memory"
   };
 }
 
@@ -327,6 +348,52 @@ export async function importStudents(rows: SheetStudentRow[]) {
       }
     }
 
+    if (sql.dialect === "mysql") {
+      const normalizedName = normalizeName(row.studentName);
+      const existing = (await sql.query(
+        `SELECT id FROM students
+         WHERE normalized_name = $1 AND (teacher_name = $2 OR (teacher_name IS NULL AND $2 IS NULL))
+         LIMIT 1`,
+        [normalizedName, teacherName]
+      )) as unknown as Array<{ id: string }>;
+
+      if (existing[0]) {
+        await sql.query(
+          `UPDATE students SET student_name=$2, score=$3, admission=$4, class_name=$5,
+             detail=$6, advice=$7, updated_at=now() WHERE id=$1`,
+          [
+            existing[0].id,
+            row.studentName,
+            row.score,
+            admission.admission,
+            admission.className,
+            admission.detail,
+            admission.advice
+          ]
+        );
+        updatedCount += 1;
+      } else {
+        await sql.query(
+          `INSERT INTO students (
+             id, student_name, normalized_name, teacher_name, score, admission, class_name, detail, advice
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [
+            randomUUID(),
+            row.studentName,
+            normalizedName,
+            teacherName,
+            row.score,
+            admission.admission,
+            admission.className,
+            admission.detail,
+            admission.advice
+          ]
+        );
+        importedCount += 1;
+      }
+      continue;
+    }
+
     const result = (await sql.query(
       `INSERT INTO students (
          id, student_name, normalized_name, teacher_name, score, admission, class_name, detail, advice
@@ -381,7 +448,31 @@ export async function importTeachers(rows: SheetTeacherRow[]) {
       continue;
     }
 
-    const result = (await getSql().query(
+    const sql = getSql();
+    if (sql.dialect === "mysql") {
+      const existing = (await sql.query("SELECT role FROM teacher_accounts WHERE teacher_name = $1 LIMIT 1", [
+        row.teacherName
+      ])) as unknown as Array<{ role: Role }>;
+      if (existing[0]) {
+        if (existing[0].role === "teacher") {
+          await sql.query(
+            "UPDATE teacher_accounts SET password_hash = $2, active = true WHERE teacher_name = $1 AND role = 'teacher'",
+            [row.teacherName, passwordHash]
+          );
+        }
+        updatedCount += 1;
+      } else {
+        await sql.query(
+          `INSERT INTO teacher_accounts (id, teacher_name, password_hash, role, active)
+           VALUES ($1, $2, $3, 'teacher', true)`,
+          [randomUUID(), row.teacherName, passwordHash]
+        );
+        importedCount += 1;
+      }
+      continue;
+    }
+
+    const result = (await sql.query(
       `INSERT INTO teacher_accounts (id, teacher_name, password_hash, role, active)
        VALUES ($1, $2, $3, 'teacher', true)
        ON CONFLICT (teacher_name) DO UPDATE SET password_hash = EXCLUDED.password_hash, active = true
@@ -426,7 +517,35 @@ export async function updateStudent(
     return current;
   }
 
-  const rows = (await getSql().query(
+  const sql = getSql();
+  if (sql.dialect === "mysql") {
+    await sql.query(
+      `UPDATE students SET student_name=$2, normalized_name=$3, score=$4, teacher_name=$5,
+         published=$6, admission=$7, class_name=$8, detail=$9, advice=$10,
+         preferred_course_time=$11, updated_at=now()
+       WHERE id=$1`,
+      [
+        id,
+        studentName,
+        normalizeName(studentName),
+        score,
+        teacherName === "未分配老师" ? null : teacherName,
+        published,
+        admission.admission,
+        admission.className,
+        admission.detail,
+        admission.advice,
+        preferredCourseTime
+      ]
+    );
+    const rows = (await sql.query("SELECT * FROM students WHERE id=$1 LIMIT 1", [id])) as unknown as Record<
+      string,
+      unknown
+    >[];
+    return rows[0] ? mapStudent(rows[0]) : null;
+  }
+
+  const rows = (await sql.query(
     `UPDATE students SET student_name=$2, normalized_name=$3, score=$4, teacher_name=$5,
        published=$6, admission=$7, class_name=$8, detail=$9, advice=$10,
        preferred_course_time=$11, updated_at=now()
@@ -459,7 +578,21 @@ export async function updateStudentCourseTime(id: string, preferredCourseTime: s
     return student;
   }
 
-  const rows = (await getSql().query(
+  const sql = getSql();
+  if (sql.dialect === "mysql") {
+    await sql.query(
+      `UPDATE students SET preferred_course_time=$2, updated_at=now()
+       WHERE id=$1 AND published=true`,
+      [id, preferredCourseTime]
+    );
+    const rows = (await sql.query("SELECT * FROM students WHERE id=$1 AND published=true LIMIT 1", [id])) as unknown as Record<
+      string,
+      unknown
+    >[];
+    return rows[0] ? mapStudent(rows[0]) : null;
+  }
+
+  const rows = (await sql.query(
     `UPDATE students SET preferred_course_time=$2, updated_at=now()
      WHERE id=$1 AND published=true RETURNING *`,
     [id, preferredCourseTime]
@@ -480,7 +613,21 @@ export async function resetStudentQuery(id: string, role: Role, teacherName?: st
     return student;
   }
 
-  const rows = (await getSql().query(
+  const sql = getSql();
+  if (sql.dialect === "mysql") {
+    await sql.query(
+      `UPDATE students SET queried=false, query_count=0, last_query=NULL, updated_at=now()
+       WHERE id=$1 AND ($2='admin' OR teacher_name=$3)`,
+      [id, role, teacherName ?? null]
+    );
+    const rows = (await sql.query(
+      "SELECT * FROM students WHERE id=$1 AND ($2='admin' OR teacher_name=$3) LIMIT 1",
+      [id, role, teacherName ?? null]
+    )) as unknown as Record<string, unknown>[];
+    return rows[0] ? mapStudent(rows[0]) : null;
+  }
+
+  const rows = (await sql.query(
     `UPDATE students SET queried=false, query_count=0, last_query=NULL, updated_at=now()
      WHERE id=$1 AND ($2='admin' OR teacher_name=$3) RETURNING *`,
     [id, role, teacherName ?? null]
@@ -496,7 +643,11 @@ export async function deleteStudent(id: string) {
     memory.students.splice(index, 1);
     return true;
   }
-  const rows = (await getSql().query("DELETE FROM students WHERE id=$1 RETURNING id", [id])) as unknown[];
+  const sql = getSql();
+  if (sql.dialect === "mysql") {
+    return (await sql.execute("DELETE FROM students WHERE id=$1", [id])).affectedRows > 0;
+  }
+  const rows = (await sql.query("DELETE FROM students WHERE id=$1 RETURNING id", [id])) as unknown[];
   return rows.length > 0;
 }
 
@@ -511,9 +662,13 @@ export async function deleteStudents(ids: string[]) {
     return before - memory.students.length;
   }
 
-  const rows = (await getSql().query("DELETE FROM students WHERE id = ANY($1::uuid[]) RETURNING id", [
-    uniqueIds
-  ])) as unknown[];
+  const sql = getSql();
+  if (sql.dialect === "mysql") {
+    const placeholders = uniqueIds.map(() => "?").join(",");
+    return (await sql.execute(`DELETE FROM students WHERE id IN (${placeholders})`, uniqueIds)).affectedRows;
+  }
+
+  const rows = (await sql.query("DELETE FROM students WHERE id = ANY($1::uuid[]) RETURNING id", [uniqueIds])) as unknown[];
   return rows.length;
 }
 
@@ -527,7 +682,20 @@ export async function updateTeacher(id: string, input: { active?: boolean; passw
     if (passwordHash) teacher.passwordHash = passwordHash;
     return true;
   }
-  const rows = (await getSql().query(
+  const sql = getSql();
+  if (sql.dialect === "mysql") {
+    return (
+      await sql.execute(
+        `UPDATE teacher_accounts SET
+           active = COALESCE($2, active),
+           password_hash = COALESCE($3, password_hash)
+         WHERE id=$1 AND role='teacher'`,
+        [id, input.active ?? null, passwordHash]
+      )
+    ).affectedRows > 0;
+  }
+
+  const rows = (await sql.query(
     `UPDATE teacher_accounts SET
        active = COALESCE($2, active),
        password_hash = COALESCE($3, password_hash)
@@ -549,7 +717,12 @@ export async function deleteTeacher(id: string) {
     });
     return true;
   }
-  const rows = (await getSql().query(
+  const sql = getSql();
+  if (sql.dialect === "mysql") {
+    return (await sql.execute("DELETE FROM teacher_accounts WHERE id=$1 AND role='teacher'", [id])).affectedRows > 0;
+  }
+
+  const rows = (await sql.query(
     "DELETE FROM teacher_accounts WHERE id=$1 AND role='teacher' RETURNING id",
     [id]
   )) as unknown[];
@@ -576,10 +749,17 @@ export async function deleteTeachers(ids: string[]) {
     return removedTeacherNames.length;
   }
 
-  const rows = (await getSql().query(
-    "DELETE FROM teacher_accounts WHERE id = ANY($1::uuid[]) AND role='teacher' RETURNING id",
-    [uniqueIds]
-  )) as unknown[];
+  const sql = getSql();
+  if (sql.dialect === "mysql") {
+    const placeholders = uniqueIds.map(() => "?").join(",");
+    return (
+      await sql.execute(`DELETE FROM teacher_accounts WHERE id IN (${placeholders}) AND role='teacher'`, uniqueIds)
+    ).affectedRows;
+  }
+
+  const rows = (await sql.query("DELETE FROM teacher_accounts WHERE id = ANY($1::uuid[]) AND role='teacher' RETURNING id", [
+    uniqueIds
+  ])) as unknown[];
   return rows.length;
 }
 
