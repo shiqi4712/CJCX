@@ -5,7 +5,6 @@ import { COURSE_DAYS, COURSE_SLOTS } from "@/lib/course-times";
 import {
   getProgramAdmissionDetail,
   getProgramIntro,
-  getProgramLandingName,
   getProgramLearningGoal,
   normalizeProgramType
 } from "@/lib/programs";
@@ -37,7 +36,6 @@ function splitCourseTime(value: string | null) {
 export function AdmissionResult({ result }: { result: QueryResult }) {
   const admitted = result.admissionResult === "已录取";
   const programType = normalizeProgramType(result.programType ?? result.recommendedClass);
-  const programLandingName = getProgramLandingName(programType);
   const certificateTitle = `${programType}录取通知书`;
   const archiveRows = [
     { label: "学生姓名", value: result.studentName, tone: "strong" },
@@ -86,19 +84,23 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
   return (
     <section className={`certificate ${admitted ? "" : "not-admitted"}`}>
       <div className="certificate-frame">
-        <header className="certificate-title">
-          <span />
-          <h2>{admitted ? certificateTitle : "查询结果"}</h2>
-          <span />
-        </header>
+        {!admitted ? (
+          <header className="certificate-title">
+            <span />
+            <h2>查询结果</h2>
+            <span />
+          </header>
+        ) : null}
 
         <article className={`invitation ${admitted ? "admission-letter" : ""}`}>
           <div className="invitation-head">
             <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
             <p>北大 - 点猫科技人工智能教育联合实验室</p>
-            <div className="program-line">
-              <strong>{admitted ? programLandingName : "编程猫学习建议"}</strong>
-            </div>
+            {!admitted ? (
+              <div className="program-line">
+                <strong>编程猫学习建议</strong>
+              </div>
+            ) : null}
             <h4>{admitted ? certificateTitle : "继续加油"}</h4>
           </div>
           <div className="invitation-body">
