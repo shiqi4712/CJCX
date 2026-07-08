@@ -360,6 +360,17 @@ button {
     linear-gradient(180deg, #ef3b32, #bd0c16);
 }
 
+.admission-letter .invitation-head img {
+  margin: 0 auto;
+}
+
+.admission-letter .invitation-head p {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
 .invitation-head img {
   display: block;
   width: min(100%, 292px);
