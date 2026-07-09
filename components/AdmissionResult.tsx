@@ -6,6 +6,7 @@ import {
   getProgramAdmissionDetail,
   getProgramIntro,
   getProgramLearningGoal,
+  getProgramWelcomeNote,
   normalizeProgramType
 } from "@/lib/programs";
 
@@ -109,7 +110,7 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
                 <p className="letter-kicker">恭喜</p>
                 <strong className="letter-student">{result.studentName}</strong>
                 <p className="letter-status">已获得{programType}录取资格</p>
-                <p className="letter-note">{getProgramIntro(programType)}</p>
+                <p className="letter-note">{getProgramWelcomeNote()}</p>
               </>
             ) : (
               <>
