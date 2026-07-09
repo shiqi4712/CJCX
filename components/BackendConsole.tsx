@@ -366,7 +366,7 @@ function Dashboard({
           <section className="tool-panel">
             <h3>学生成绩信息</h3>
             <p>
-              支持 .xlsx 或 .csv，表头为：学生姓名、成绩、综合得分、老师姓名、班级类型。班级类型可填：英才班、科特班、育才班。
+              支持 .xlsx 或 .csv，表头为：学生姓名、成绩、综合得分、老师姓名、班级类型。班级类型可填：英才班、科特班、育才班、特训营。
             </p>
             <input ref={studentImportRef} type="file" accept=".xlsx,.csv" />
             <button onClick={() => uploadFile("/api/admin/students/import", studentImportRef.current, "学生成绩")}>
@@ -564,7 +564,7 @@ function Dashboard({
                           const score = window.prompt("成绩", student.score);
                           if (!score) return;
                           const overallScore = window.prompt("综合得分", student.overallScore ?? "");
-                          const programType = window.prompt("班级类型：英才班 / 科特班 / 育才班", student.programType);
+                          const programType = window.prompt("班级类型：英才班 / 科特班 / 育才班 / 特训营", student.programType);
                           if (!programType) return;
                           const teacherName = window.prompt("老师姓名", student.teacherName);
                           if (!teacherName) return;
