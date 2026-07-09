@@ -87,7 +87,7 @@ test("duplicate imports update records and teachers only see assigned students",
   const teacherOverview = await getOverview("teacher", "王老师");
   assert.equal(teacherOverview.students.length, 1);
   assert.equal(teacherOverview.students[0].score, "A+");
-  assertScoreInRange(teacherOverview.students[0].overallScore, 95, 99);
+  assertScoreInRange(teacherOverview.students[0].overallScore, 97, 99);
   assert.equal((await getOverview("teacher", "李老师")).students.length, 1);
   assert.equal(await login("王老师", "abc123").then(Boolean), true);
   assert.equal(await login("jiangxiao", "df666").then((user) => user?.role), "admin");
@@ -129,7 +129,7 @@ test("only S A A+ and 前10% scores are admitted", async () => {
   assert.equal(overview.students.find((student) => student.studentName === "等级C学生")?.admission, "未录取");
   assert.equal(overview.students.find((student) => student.studentName === "综合学生")?.admission, "未录取");
   assert.equal(overview.students.find((student) => student.studentName === "未知学生")?.admission, "未录取");
-  assertScoreInRange(overview.students.find((student) => student.studentName === "等级A+学生")?.overallScore, 95, 99);
+  assertScoreInRange(overview.students.find((student) => student.studentName === "等级A+学生")?.overallScore, 97, 99);
   assertScoreInRange(overview.students.find((student) => student.studentName === "等级B学生")?.overallScore, 85, 95);
 });
 

@@ -19,7 +19,7 @@ const MAX_PARENT_QUERY_COUNT = 3;
 
 function generateOverallScore(admissionStatus: string) {
   const admitted = admissionStatus === "已录取";
-  const minCents = admitted ? 9500 : 8500;
+  const minCents = admitted ? 9700 : 8500;
   const maxCents = admitted ? 9900 : 9500;
   const cents = Math.floor(Math.random() * (maxCents - minCents + 1)) + minCents;
   return (cents / 100).toFixed(2);
