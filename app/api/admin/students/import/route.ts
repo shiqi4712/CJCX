@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   const rows = toStudentRows(parsedRows);
   if (rows.length === 0) {
     return NextResponse.json(
-      { message: "表头必须包含：学生姓名、成绩；可选：综合得分/分数、老师姓名、班级类型" },
+      { message: "表头必须包含：学生姓名、成绩；可选：老师姓名、班级类型。综合得分由系统自动生成。" },
       { status: 400 }
     );
   }

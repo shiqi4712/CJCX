@@ -17,6 +17,14 @@ const nowText = () => new Date().toISOString();
 export const ALREADY_QUERIED_RESULT = "already_queried" as const;
 const MAX_PARENT_QUERY_COUNT = 3;
 
+function generateOverallScore(admissionStatus: string) {
+  const admitted = admissionStatus === "已录取";
+  const minCents = admitted ? 9500 : 8500;
+  const maxCents = admitted ? 9900 : 9500;
+  const cents = Math.floor(Math.random() * (maxCents - minCents + 1)) + minCents;
+  return (cents / 100).toFixed(2);
+}
+
 function buildAdmissionByScore(score: string, inputProgramType?: string | null) {
   const programType = normalizeProgramType(inputProgramType);
   const normalizedScore = score.trim().replace(/\s+/g, "").toUpperCase();
@@ -290,6 +298,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
   for (const row of rows) {
     const programType = normalizeProgramType(row.programType);
     const admission = buildAdmissionByScore(row.score, programType);
+    const overallScore = generateOverallScore(admission.admission);
     const teacherName = row.teacherName && row.teacherName !== "未分配老师" ? row.teacherName : null;
 
     if (!hasDatabase()) {
@@ -301,7 +310,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
       if (existing) {
         Object.assign(existing, {
           score: row.score,
-          overallScore: row.overallScore ?? null,
+          overallScore,
           ...admission,
           updatedAt: nowText()
         });
@@ -313,7 +322,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
           studentName: row.studentName,
           teacherName: teacherName ?? "未分配老师",
           score: row.score,
-          overallScore: row.overallScore ?? null,
+          overallScore,
           ...admission,
           queried: false,
           queryCount: 0,
@@ -350,7 +359,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
             existing[0].id,
             row.studentName,
             row.score,
-            row.overallScore ?? null,
+            overallScore,
             programType,
             admission.admission,
             admission.className,
@@ -380,7 +389,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
             existing[0].id,
             row.studentName,
             row.score,
-            row.overallScore ?? null,
+            overallScore,
             programType,
             admission.admission,
             admission.className,
@@ -401,7 +410,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
             normalizedName,
             teacherName,
             row.score,
-            row.overallScore ?? null,
+            overallScore,
             programType,
             admission.admission,
             admission.className,
@@ -431,7 +440,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
         normalizeName(row.studentName),
         teacherName,
         row.score,
-        row.overallScore ?? null,
+        overallScore,
         programType,
         admission.admission,
         admission.className,
@@ -526,12 +535,12 @@ export async function updateStudent(
 
   const studentName = input.studentName ?? current.studentName;
   const score = input.score ?? current.score;
-  const overallScore = input.overallScore !== undefined ? input.overallScore : current.overallScore;
   const teacherName = input.teacherName ?? current.teacherName;
   const programType = normalizeProgramType(input.programType ?? current.programType);
   const published = input.published ?? current.published;
   const preferredCourseTime = input.preferredCourseTime ?? current.preferredCourseTime;
   const admission = buildAdmissionByScore(score, programType);
+  const overallScore = generateOverallScore(admission.admission);
 
   if (!hasDatabase()) {
     Object.assign(current, {

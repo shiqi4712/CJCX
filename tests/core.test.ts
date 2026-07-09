@@ -45,20 +45,27 @@ test("rate limiting blocks requests after the configured allowance", async () =>
   assert.equal((await checkRateLimit("query:test", 2, 60_000)).allowed, false);
 });
 
-test("CSV import supports quoted fields, overall score and teacher assignment", async () => {
+function assertScoreInRange(value: string | null | undefined, min: number, max: number) {
+  assert.ok(value);
+  assert.match(value, /^\d+\.\d{2}$/);
+  const numeric = Number(value);
+  assert.ok(numeric >= min && numeric <= max, `${value} should be in [${min}, ${max}]`);
+}
+
+test("CSV import supports quoted fields, teacher assignment and program type", async () => {
   const csv = new File(
     [
-      ["学生姓名,成绩,综合得分,老师姓名,班级类型", '"张小明",A,97.74,王老师,育才班', '"李小明",A+,98.5,李老师,特训营'].join("\n")
+      ["学生姓名,成绩,老师姓名,班级类型", '"张小明",A,王老师,育才班', '"李小明",A+,李老师,特训营'].join("\n")
     ],
     "students.csv",
     {
-    type: "text/csv"
+      type: "text/csv"
     }
   );
   const rows = toStudentRows(await parseSheetFile(csv));
   assert.deepEqual(rows, [
-    { studentName: "张小明", score: "A", overallScore: "97.74", teacherName: "王老师", programType: "育才班" },
-    { studentName: "李小明", score: "A+", overallScore: "98.5", teacherName: "李老师", programType: "科特特训营" }
+    { studentName: "张小明", score: "A", overallScore: null, teacherName: "王老师", programType: "育才班" },
+    { studentName: "李小明", score: "A+", overallScore: null, teacherName: "李老师", programType: "科特特训营" }
   ]);
 });
 
@@ -80,7 +87,7 @@ test("duplicate imports update records and teachers only see assigned students",
   const teacherOverview = await getOverview("teacher", "王老师");
   assert.equal(teacherOverview.students.length, 1);
   assert.equal(teacherOverview.students[0].score, "A+");
-  assert.equal(teacherOverview.students[0].overallScore, null);
+  assertScoreInRange(teacherOverview.students[0].overallScore, 95, 99);
   assert.equal((await getOverview("teacher", "李老师")).students.length, 1);
   assert.equal(await login("王老师", "abc123").then(Boolean), true);
   assert.equal(await login("jiangxiao", "df666").then((user) => user?.role), "admin");
@@ -122,6 +129,8 @@ test("only S A A+ and 前10% scores are admitted", async () => {
   assert.equal(overview.students.find((student) => student.studentName === "等级C学生")?.admission, "未录取");
   assert.equal(overview.students.find((student) => student.studentName === "综合学生")?.admission, "未录取");
   assert.equal(overview.students.find((student) => student.studentName === "未知学生")?.admission, "未录取");
+  assertScoreInRange(overview.students.find((student) => student.studentName === "等级A+学生")?.overallScore, 95, 99);
+  assertScoreInRange(overview.students.find((student) => student.studentName === "等级B学生")?.overallScore, 85, 95);
 });
 
 test("same-name query returns the earliest published record and records status", async () => {
