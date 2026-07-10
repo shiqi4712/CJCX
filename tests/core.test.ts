@@ -4,6 +4,7 @@ import JSZip from "jszip";
 import { decodeSession, encodeSession } from "../lib/auth";
 import { buildCoursePlanZip } from "../lib/documents";
 import { hashPassword, verifyPassword } from "../lib/passwords";
+import { getProgramDisplayName, getProgramIntro, getProgramLandingName } from "../lib/programs";
 import { checkRateLimit, resetRateLimits } from "../lib/rate-limit";
 import { parseSheetFile, toStudentRows } from "../lib/sheets";
 import {
@@ -106,6 +107,12 @@ test("student program type controls admitted class display", async () => {
   assert.equal(overview.students.find((student) => student.studentName === "科特学生")?.className, "科特班");
   assert.equal(overview.students.find((student) => student.studentName === "育才学生")?.className, "育才班");
   assert.equal(overview.students.find((student) => student.studentName === "特训学生")?.className, "科特特训营");
+});
+
+test("special training program uses parent-facing display copy", () => {
+  assert.equal(getProgramLandingName("科特特训营"), "科特训练营");
+  assert.equal(getProgramDisplayName("科特特训营"), "科特训练营");
+  assert.match(getProgramIntro("科特特训营"), /^科特训练营是编程猫依托北大共建 AI 实验室开办/);
 });
 
 test("only S A A+ and 前10% scores are admitted", async () => {

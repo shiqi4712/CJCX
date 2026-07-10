@@ -4,6 +4,7 @@ import { useState } from "react";
 import { COURSE_DAYS, COURSE_SLOTS } from "@/lib/course-times";
 import {
   getProgramAdmissionDetail,
+  getProgramDisplayName,
   getProgramIntro,
   getProgramLearningGoal,
   getProgramWelcomeNote,
@@ -37,15 +38,17 @@ function splitCourseTime(value: string | null) {
 export function AdmissionResult({ result }: { result: QueryResult }) {
   const admitted = result.admissionResult === "已录取";
   const programType = normalizeProgramType(result.programType ?? result.recommendedClass);
-  const certificateTitle = `${programType}录取通知书`;
+  const programName = getProgramDisplayName(programType);
+  const isTrainingCamp = programType === "科特特训营";
+  const certificateTitle = `${programName}录取通知书`;
   const archiveRows = [
     { label: "学生姓名", value: result.studentName, tone: "strong" },
     { label: "综合成绩", value: result.score, tone: "strong" },
     { label: "综合得分", value: result.overallScore || "未填写" },
-    { label: "录取结果", value: programType, tone: "strong" },
+    { label: "录取结果", value: programName, tone: "strong" },
     { label: "录取详情", value: getProgramAdmissionDetail(programType), wide: true },
     { label: "学习目标", value: getProgramLearningGoal(programType), wide: true },
-    { label: `${programType}简介`, value: getProgramIntro(programType), wide: true }
+    { label: `${programName}简介`, value: getProgramIntro(programType), wide: true }
   ];
   const savedCourseTime = splitCourseTime(result.preferredCourseTime);
   const [selectedDay, setSelectedDay] = useState(savedCourseTime.day);
@@ -95,8 +98,12 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
 
         <article className={`invitation ${admitted ? "admission-letter" : ""}`}>
           <div className="invitation-head">
-            <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
-            <p>北大 - 点猫科技人工智能教育联合实验室</p>
+            {!isTrainingCamp ? (
+              <>
+                <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
+                <p>北大 - 点猫科技人工智能教育联合实验室</p>
+              </>
+            ) : null}
             {!admitted ? (
               <div className="program-line">
                 <strong>编程猫学习建议</strong>
@@ -109,7 +116,7 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
               <>
                 <p className="letter-kicker">恭喜</p>
                 <strong className="letter-student">{result.studentName}</strong>
-                <p className="letter-status">已获得{programType}录取资格</p>
+                <p className="letter-status">已获得{programName}录取资格</p>
                 <p className="letter-note">{getProgramWelcomeNote()}</p>
               </>
             ) : (

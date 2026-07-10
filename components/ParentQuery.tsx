@@ -8,6 +8,7 @@ export function ParentQuery() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const programType = normalizeProgramType(searchParams.get("program"));
+  const isTrainingCamp = programType === "科特特训营";
   const title = `${getProgramLandingName(programType)}录取结果查询`;
   const [studentName, setStudentName] = useState("");
   const [message, setMessage] = useState("");
@@ -29,9 +30,11 @@ export function ParentQuery() {
   return (
     <main className="parent-shell">
       <section className="query-hero" aria-label={title}>
-        <header className="brand-strip">
-          <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
-        </header>
+        {!isTrainingCamp ? (
+          <header className="brand-strip">
+            <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
+          </header>
+        ) : null}
 
         <div className="hero-copy">
           <p>编程猫在线教育中心</p>
