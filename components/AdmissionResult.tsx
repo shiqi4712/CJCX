@@ -39,7 +39,6 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
   const admitted = result.admissionResult === "已录取";
   const programType = normalizeProgramType(result.programType ?? result.recommendedClass);
   const programName = getProgramDisplayName(programType);
-  const isTrainingCamp = programType === "科特特训营";
   const certificateTitle = `${programName}录取通知书`;
   const archiveRows = [
     { label: "学生姓名", value: result.studentName, tone: "strong" },
@@ -98,12 +97,8 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
 
         <article className={`invitation ${admitted ? "admission-letter" : ""}`}>
           <div className="invitation-head">
-            {!isTrainingCamp ? (
-              <>
-                <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
-                <p>北大 - 点猫科技人工智能教育联合实验室</p>
-              </>
-            ) : null}
+            <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
+            <p>北大 - 点猫科技人工智能教育联合实验室</p>
             {!admitted ? (
               <div className="program-line">
                 <strong>编程猫学习建议</strong>
