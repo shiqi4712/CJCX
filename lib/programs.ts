@@ -1,4 +1,4 @@
-export const PROGRAM_TYPES = ["英才班", "科特班", "育才班", "科特特训营"] as const;
+export const PROGRAM_TYPES = ["英才特训营", "科特班", "育才班", "科特特训营"] as const;
 
 export type ProgramType = (typeof PROGRAM_TYPES)[number];
 
@@ -9,17 +9,25 @@ export function normalizeProgramType(value?: string | null): ProgramType {
     .replace(/\s+/g, "")
     .replace(/·?英才计划/g, "");
 
-  if (normalized.includes("特训营") || normalized.includes("texun") || normalized.includes("bootcamp")) {
+  if (normalized.includes("英才") || normalized.includes("yingcai")) return "英才特训营";
+  if (
+    normalized === "特训营" ||
+    normalized.includes("科特训练营") ||
+    normalized.includes("科特特训营") ||
+    normalized.includes("texun") ||
+    normalized.includes("bootcamp")
+  ) {
     return "科特特训营";
   }
   if (normalized.includes("科特") || normalized.includes("kete")) return "科特班";
   if (normalized.includes("育才") || normalized.includes("yucai")) return "育才班";
-  return "英才班";
+  return "英才特训营";
 }
 
 export function getProgramLandingName(programType: ProgramType) {
   if (programType === "科特特训营") return "科特训练营";
-  return programType === "英才班" ? "英才班" : `${programType}·英才计划`;
+  if (programType === "英才特训营") return "英才特训营";
+  return `${programType}·英才计划`;
 }
 
 export function getProgramDisplayName(programType: ProgramType) {
@@ -39,7 +47,7 @@ export function getProgramIntro(programType: ProgramType) {
     case "育才班":
       return "育才班是编程猫依托“北京大学与点猫科技联合共建人工智能实验室”背景，全新设立的人才选拔与专项培养班型。该班专为幼小衔接和一年级孩子打造，由编程猫优秀师资带教，定制培养思维、专注力和表达力三大能力，并融入教育部白名单赛事、NCT 考级等实战机会，帮助孩子积累特长升学证明，开拓视野、建立自信。编程猫在等级考试、白名单赛事与信奥赛等方向保持行业领先表现，被誉为少儿编程行业的“黄埔军校”。";
     default:
-      return "英才班是编程猫依托北大共建 AI 实验室开设的重点培养班。入选学员可优先使用实验室研发、教研资源与竞赛通道，同步提升语数英创新学习能力。前期侧重思维训练、保护学习兴趣，后期主攻竞赛，助力孩子科创发展与升学。学员需通过审核评估后入班。";
+      return "英才特训营是编程猫依托北大共建 AI 实验室开设的重点培养项目。入选学员可优先使用实验室研发、教研资源与竞赛通道，同步提升语数英创新学习能力。前期侧重思维训练、保护学习兴趣，后期主攻竞赛，助力孩子科创发展与升学。学员需通过审核评估后入营。";
   }
 }
 

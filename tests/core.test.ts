@@ -4,7 +4,7 @@ import JSZip from "jszip";
 import { decodeSession, encodeSession } from "../lib/auth";
 import { buildCoursePlanZip } from "../lib/documents";
 import { hashPassword, verifyPassword } from "../lib/passwords";
-import { getProgramDisplayName, getProgramIntro, getProgramLandingName } from "../lib/programs";
+import { getProgramDisplayName, getProgramIntro, getProgramLandingName, normalizeProgramType } from "../lib/programs";
 import { checkRateLimit, resetRateLimits } from "../lib/rate-limit";
 import { parseSheetFile, toStudentRows } from "../lib/sheets";
 import {
@@ -96,14 +96,14 @@ test("duplicate imports update records and teachers only see assigned students",
 
 test("student program type controls admitted class display", async () => {
   await importStudents([
-    { studentName: "英才学生", score: "A+", teacherName: "未分配老师", programType: "英才班" },
+    { studentName: "英才学生", score: "A+", teacherName: "未分配老师", programType: "英才特训营" },
     { studentName: "科特学生", score: "A+", teacherName: "未分配老师", programType: "科特班" },
     { studentName: "育才学生", score: "A+", teacherName: "未分配老师", programType: "育才班" },
     { studentName: "特训学生", score: "A+", teacherName: "未分配老师", programType: "科特特训营" }
   ]);
 
   const overview = await getOverview("admin");
-  assert.equal(overview.students.find((student) => student.studentName === "英才学生")?.className, "英才班");
+  assert.equal(overview.students.find((student) => student.studentName === "英才学生")?.className, "英才特训营");
   assert.equal(overview.students.find((student) => student.studentName === "科特学生")?.className, "科特班");
   assert.equal(overview.students.find((student) => student.studentName === "育才学生")?.className, "育才班");
   assert.equal(overview.students.find((student) => student.studentName === "特训学生")?.className, "科特特训营");
@@ -113,6 +113,13 @@ test("special training program uses parent-facing display copy", () => {
   assert.equal(getProgramLandingName("科特特训营"), "科特训练营");
   assert.equal(getProgramDisplayName("科特特训营"), "科特训练营");
   assert.match(getProgramIntro("科特特训营"), /^科特训练营是编程猫依托北大共建 AI 实验室开办/);
+});
+
+test("old elite class label maps to elite training camp", () => {
+  assert.equal(normalizeProgramType("英才班"), "英才特训营");
+  assert.equal(getProgramLandingName("英才特训营"), "英才特训营");
+  assert.equal(getProgramDisplayName("英才特训营"), "英才特训营");
+  assert.match(getProgramIntro("英才特训营"), /^英才特训营是编程猫依托北大共建 AI 实验室开设/);
 });
 
 test("only S A A+ and 前10% scores are admitted", async () => {

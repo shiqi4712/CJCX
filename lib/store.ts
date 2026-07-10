@@ -94,6 +94,7 @@ async function ensureReady() {
 }
 
 function mapStudent(row: Record<string, unknown>): Student {
+  const className = String(row.class_name);
   return {
     id: String(row.id),
     studentName: String(row.student_name),
@@ -102,7 +103,7 @@ function mapStudent(row: Record<string, unknown>): Student {
     overallScore: row.overall_score ? String(row.overall_score) : null,
     programType: normalizeProgramType(String(row.program_type ?? "")),
     admission: String(row.admission),
-    className: String(row.class_name),
+    className: className === "继续努力" ? className : normalizeProgramType(className),
     detail: String(row.detail),
     advice: String(row.advice),
     queried: Boolean(row.queried),
