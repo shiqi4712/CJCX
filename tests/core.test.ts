@@ -4,7 +4,13 @@ import JSZip from "jszip";
 import { decodeSession, encodeSession } from "../lib/auth";
 import { buildCoursePlanZip } from "../lib/documents";
 import { hashPassword, verifyPassword } from "../lib/passwords";
-import { getProgramDisplayName, getProgramIntro, getProgramLandingName, normalizeProgramType } from "../lib/programs";
+import {
+  getProgramDisplayName,
+  getProgramIntro,
+  getProgramLandingName,
+  getProgramQueryTitle,
+  normalizeProgramType
+} from "../lib/programs";
 import { checkRateLimit, resetRateLimits } from "../lib/rate-limit";
 import { parseSheetFile, toStudentRows } from "../lib/sheets";
 import {
@@ -118,6 +124,7 @@ test("special training program uses parent-facing display copy", () => {
 test("old elite class label maps to elite training camp", () => {
   assert.equal(normalizeProgramType("英才班"), "英才特训营");
   assert.equal(getProgramLandingName("英才特训营"), "英才特训营");
+  assert.equal(getProgramQueryTitle("英才特训营"), "深圳特训营录取结果查询");
   assert.equal(getProgramDisplayName("英才特训营"), "英才特训营");
   assert.match(getProgramIntro("英才特训营"), /^英才特训营是编程猫依托北大共建 AI 实验室开设/);
 });

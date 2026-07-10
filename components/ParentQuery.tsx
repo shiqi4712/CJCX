@@ -2,13 +2,13 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getProgramLandingName, normalizeProgramType } from "@/lib/programs";
+import { getProgramQueryTitle, normalizeProgramType } from "@/lib/programs";
 
 export function ParentQuery() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const programType = normalizeProgramType(searchParams.get("program"));
-  const title = `${getProgramLandingName(programType)}录取结果查询`;
+  const title = getProgramQueryTitle(programType);
   const [studentName, setStudentName] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
