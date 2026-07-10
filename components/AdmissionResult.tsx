@@ -98,7 +98,6 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
         <article className={`invitation ${admitted ? "admission-letter" : ""}`}>
           <div className="invitation-head">
             <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
-            <p>北大 - 点猫科技人工智能教育联合实验室</p>
             {!admitted ? (
               <div className="program-line">
                 <strong>编程猫学习建议</strong>
