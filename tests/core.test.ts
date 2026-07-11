@@ -7,6 +7,7 @@ import { hashPassword, verifyPassword } from "../lib/passwords";
 import {
   getProgramDisplayName,
   getProgramIntro,
+  getProgramLearningGoal,
   getProgramLandingName,
   getProgramQueryTitle,
   normalizeProgramType
@@ -121,6 +122,13 @@ test("special training program uses parent-facing display copy", () => {
   assert.match(getProgramIntro("科特特训营"), /^科特训练营是编程猫依托北大共建 AI 实验室开办/);
 });
 
+test("kete class has dedicated learning goal", () => {
+  assert.equal(
+    getProgramLearningGoal("科特班"),
+    "半年冲刺三张国家级证书，提供赛事与考级辅导支持，在锻炼思维能力、提升学习成绩的同时，帮助孩子持续积累科技特长。"
+  );
+});
+
 test("old elite class label maps to elite training camp", () => {
   assert.equal(normalizeProgramType("英才班"), "英才特训营");
   assert.equal(getProgramLandingName("英才特训营"), "英才特训营");
@@ -162,16 +170,14 @@ test("same-name query returns the earliest published record and records status",
   assert.equal(result?.queryCount, 1);
   const overview = await getOverview("admin");
   assert.equal(overview.queryLogs[0].resultStatus, "success");
+  assert.equal(overview.students.find((student) => student.studentName === "张小明")?.queried, true);
 
-  const secondQuery = await queryStudentByName("张小明");
-  assert.notEqual(secondQuery, ALREADY_QUERIED_RESULT);
-  if (secondQuery === ALREADY_QUERIED_RESULT) throw new Error("second query should return student");
-  assert.equal(secondQuery?.queryCount, 2);
-
-  const thirdQuery = await queryStudentByName("张小明");
-  assert.notEqual(thirdQuery, ALREADY_QUERIED_RESULT);
-  if (thirdQuery === ALREADY_QUERIED_RESULT) throw new Error("third query should return student");
-  assert.equal(thirdQuery?.queryCount, 3);
+  for (let expectedCount = 2; expectedCount <= 8; expectedCount += 1) {
+    const nextQuery = await queryStudentByName("张小明");
+    assert.notEqual(nextQuery, ALREADY_QUERIED_RESULT);
+    if (nextQuery === ALREADY_QUERIED_RESULT) throw new Error(`query ${expectedCount} should return student`);
+    assert.equal(nextQuery?.queryCount, expectedCount);
+  }
 
   assert.equal(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
 
@@ -192,8 +198,9 @@ test("teacher can reset assigned student query eligibility", async () => {
   assert.notEqual(result, ALREADY_QUERIED_RESULT);
   if (result === ALREADY_QUERIED_RESULT) throw new Error("query after reset should return student");
   assert.equal(result?.queryCount, 1);
-  assert.notEqual(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
-  assert.notEqual(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
+  for (let count = 2; count <= 8; count += 1) {
+    assert.notEqual(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
+  }
   assert.equal(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
 });
 

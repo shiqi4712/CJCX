@@ -61,5 +61,8 @@ export function getProgramAdmissionDetail(programType: ProgramType) {
 }
 
 export function getProgramLearningGoal(programType: ProgramType) {
+  if (programType === "科特班") {
+    return "半年冲刺三张国家级证书，提供赛事与考级辅导支持，在锻炼思维能力、提升学习成绩的同时，帮助孩子持续积累科技特长。";
+  }
   return "半年冲刺三项成长成果，提供赛事与考级辅导支持，在锻炼思维能力、提升学习成绩的同时，帮助孩子持续积累科技特长。";
 }
