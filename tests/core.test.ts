@@ -133,7 +133,8 @@ test("kete class has dedicated learning goal", () => {
 test("old elite class label maps to elite training camp", () => {
   assert.equal(normalizeProgramType("英才班"), "英才特训营");
   assert.equal(getProgramLandingName("英才特训营"), "英才特训营");
-  assert.equal(getProgramQueryTitle("英才特训营"), "深圳特训营录取结果查询");
+  assert.equal(getProgramQueryTitle("英才特训营"), "英才计划录取结果查询");
+  assert.equal(getProgramQueryTitle("科特班"), "英才计划录取结果查询");
   assert.equal(getProgramDisplayName("英才特训营"), "英才特训营");
   assert.match(getProgramIntro("英才特训营"), /^英才特训营是编程猫依托北大共建 AI 实验室开设/);
 });

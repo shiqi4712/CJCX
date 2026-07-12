@@ -31,7 +31,7 @@ export function getProgramLandingName(programType: ProgramType) {
 }
 
 export function getProgramQueryTitle(programType: ProgramType) {
-  return programType === "英才特训营" ? "深圳特训营录取结果查询" : `${getProgramLandingName(programType)}录取结果查询`;
+  return "英才计划录取结果查询";
 }
 
 export function getProgramDisplayName(programType: ProgramType) {
