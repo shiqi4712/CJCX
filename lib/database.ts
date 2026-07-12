@@ -260,7 +260,8 @@ async function ensureBuiltInAdmins(sql: SqlClient) {
     ["00000000-0000-4000-8000-000000000002", "zhiyang", "tt666"],
     ["00000000-0000-4000-8000-000000000003", "zeyu", "ty666"],
     ["00000000-0000-4000-8000-000000000004", "jiangxiao", "df666"],
-    ["00000000-0000-4000-8000-000000000005", "shiqi", "shiqi123"]
+    ["00000000-0000-4000-8000-000000000005", "shiqi", "shiqi123"],
+    ["00000000-0000-4000-8000-000000000006", "yangxu", "cz666"]
   ] as const;
 
   for (const [id, teacherName, password] of builtIns) {
