@@ -99,6 +99,7 @@ test("duplicate imports update records and teachers only see assigned students",
   assert.equal((await getOverview("teacher", "李老师")).students.length, 1);
   assert.equal(await login("王老师", "abc123").then(Boolean), true);
   assert.equal(await login("jiangxiao", "df666").then((user) => user?.role), "admin");
+  assert.equal(await login("shiqi", "shiqi123").then((user) => user?.role), "admin");
 });
 
 test("student program type controls admitted class display", async () => {
