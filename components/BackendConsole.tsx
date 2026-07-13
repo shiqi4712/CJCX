@@ -2,6 +2,8 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+const STUDENT_PAGE_SIZE = 20;
+
 type Overview = {
   stats: {
     studentCount: number;
@@ -149,17 +151,27 @@ function Dashboard({
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [studentSearch, setStudentSearch] = useState("");
+  const [studentPage, setStudentPage] = useState(1);
+  const [newStudentName, setNewStudentName] = useState("");
+  const [newStudentScore, setNewStudentScore] = useState("");
   const isAdmin = loginState.role === "admin";
   const teacherRows = overview?.teachers.filter((teacher) => teacher.role === "teacher") ?? [];
   const studentRows = overview?.students ?? [];
   const normalizedStudentSearch = studentSearch.trim().toLowerCase();
-  const visibleStudentRows = useMemo(
+  const filteredStudentRows = useMemo(
     () =>
       normalizedStudentSearch
         ? studentRows.filter((student) => student.studentName.toLowerCase().includes(normalizedStudentSearch))
         : studentRows,
     [normalizedStudentSearch, studentRows]
   );
+  const studentPageCount = Math.max(1, Math.ceil(filteredStudentRows.length / STUDENT_PAGE_SIZE));
+  const visibleStudentRows = useMemo(() => {
+    const start = (studentPage - 1) * STUDENT_PAGE_SIZE;
+    return filteredStudentRows.slice(start, start + STUDENT_PAGE_SIZE);
+  }, [filteredStudentRows, studentPage]);
+  const totalQueryCount = studentRows.reduce((sum, student) => sum + student.queryCount, 0);
+  const queryRate = statsPercent(studentRows.filter((student) => student.queried).length, studentRows.length);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -176,6 +188,16 @@ function Dashboard({
       return nextIds.length === ids.length ? ids : nextIds;
     });
   }, [visibleStudentRows]);
+
+  useEffect(() => {
+    setStudentPage(1);
+  }, [normalizedStudentSearch]);
+
+  useEffect(() => {
+    if (studentPage > studentPageCount) {
+      setStudentPage(studentPageCount);
+    }
+  }, [studentPage, studentPageCount]);
 
   async function uploadFile(endpoint: string, input: HTMLInputElement | null, label: string) {
     const file = input?.files?.[0];
@@ -213,8 +235,34 @@ function Dashboard({
     await refreshOverview();
   }
 
+  async function addSingleStudent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const studentName = newStudentName.trim();
+    const score = newStudentScore.trim();
+    if (!studentName || !score) {
+      setStatus("请填写学生姓名和学生成绩");
+      return;
+    }
+
+    const response = await fetch("/api/teacher/students", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentName, score })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setStatus(data.message ?? "添加学生失败");
+      return;
+    }
+
+    setNewStudentName("");
+    setNewStudentScore("");
+    setStatus(`${studentName} 已添加`);
+    await refreshOverview();
+  }
+
   async function resetQuery(studentId: string, studentName: string) {
-    if (!window.confirm(`确认重置 ${studentName} 的查询资格？重置后家长可以重新查询 3 次。`)) {
+    if (!window.confirm(`确认重置 ${studentName} 的查询资格？重置后家长可以重新查询 8 次。`)) {
       return;
     }
 
@@ -225,7 +273,7 @@ function Dashboard({
       return;
     }
 
-    setStatus(`${studentName} 已重置，可重新查询 3 次`);
+    setStatus(`${studentName} 已重置，可重新查询 8 次`);
     await refreshOverview();
   }
 
@@ -372,10 +420,12 @@ function Dashboard({
 
       <div className="metric-grid">
         <Metric label="学生总数" value={stats?.studentCount ?? 0} />
-        <Metric label="老师数量" value={stats?.teacherCount ?? 0} />
+        {isAdmin ? <Metric label="老师数量" value={stats?.teacherCount ?? 0} /> : null}
         <Metric label="已录取" value={stats?.admittedCount ?? 0} />
         <Metric label="已查询" value={stats?.queriedCount ?? 0} />
-        <Metric label="未查询" value={stats?.pendingCount ?? 0} />
+        <Metric label={isAdmin ? "当前查询率" : "查询率"} value={queryRate} />
+        <Metric label="查询次数" value={totalQueryCount} />
+        {isAdmin ? <Metric label="未查询" value={stats?.pendingCount ?? 0} /> : null}
       </div>
 
       {isAdmin ? (
@@ -417,6 +467,22 @@ function Dashboard({
           <button onClick={exportPlans}>生成并批量导出</button>
         </section>
       ) : null}
+
+      <section className="tool-panel wide">
+        <h3>单个学员添加</h3>
+        <p>{isAdmin ? "仅填写一个学生姓名和成绩，添加后默认未分配老师。" : "仅填写一个学生姓名和成绩，添加后自动归属当前老师。"}</p>
+        <form className="single-student-form" onSubmit={addSingleStudent}>
+          <label>
+            <span>学生姓名</span>
+            <input value={newStudentName} onChange={(event) => setNewStudentName(event.target.value)} />
+          </label>
+          <label>
+            <span>学生成绩</span>
+            <input value={newStudentScore} onChange={(event) => setNewStudentScore(event.target.value)} placeholder="如 A+ / A / B" />
+          </label>
+          <button type="submit">添加学员</button>
+        </form>
+      </section>
 
       {status ? <div className="console-message success">{status}</div> : null}
 
@@ -516,6 +582,9 @@ function Dashboard({
           </div>
           {isAdmin ? (
             <div className="table-actions">
+              <span className="table-count">
+                共 {filteredStudentRows.length} 人，第 {studentPage} / {studentPageCount} 页
+              </span>
               <button onClick={exportQueryStatus}>导出查询情况</button>
               <button
                 disabled={selectedStudentIds.length === 0}
@@ -635,18 +704,37 @@ function Dashboard({
             </tbody>
           </table>
         </div>
+        <div className="pagination">
+          <button disabled={studentPage <= 1} onClick={() => setStudentPage((page) => Math.max(1, page - 1))}>
+            上一页
+          </button>
+          <span>
+            第 {studentPage} / {studentPageCount} 页，每页 {STUDENT_PAGE_SIZE} 条
+          </span>
+          <button
+            disabled={studentPage >= studentPageCount}
+            onClick={() => setStudentPage((page) => Math.min(studentPageCount, page + 1))}
+          >
+            下一页
+          </button>
+        </div>
       </section>
     </section>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="metric">
       <strong>{value}</strong>
       <span>{label}</span>
     </div>
   );
+}
+
+function statsPercent(part: number, total: number) {
+  if (total <= 0) return "0%";
+  return `${Math.round((part / total) * 100)}%`;
 }
 
 function toCsvCell(value: string) {

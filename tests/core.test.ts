@@ -233,6 +233,18 @@ test("bulk delete removes selected teachers and students", async () => {
   assert.equal(after.students.find((student) => student.studentName === "批量学生一")?.teacherName, "未分配老师");
 });
 
+test("single student import can add one assigned student", async () => {
+  resetMemoryStoreForTests();
+  await importTeachers([{ teacherName: "单个老师", password: "abc123" }]);
+  const result = await importStudents([{ studentName: "单个学生", score: "A+", teacherName: "单个老师" }]);
+  assert.equal(result.importedCount, 1);
+
+  const overview = await getOverview("teacher", "单个老师");
+  assert.equal(overview.students.length, 1);
+  assert.equal(overview.students[0].studentName, "单个学生");
+  assert.equal(overview.students[0].queryCount, 0);
+});
+
 test("course-plan export creates one personalized PDF per student", async () => {
   const archive = await buildCoursePlanZip(null, [
     { studentName: "张小明", score: "A+", teacherName: "王老师" },
