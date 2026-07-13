@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Overview = {
   stats: {
@@ -148,9 +148,18 @@ function Dashboard({
   const planStudentsRef = useRef<HTMLInputElement>(null);
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [studentSearch, setStudentSearch] = useState("");
   const isAdmin = loginState.role === "admin";
   const teacherRows = overview?.teachers.filter((teacher) => teacher.role === "teacher") ?? [];
   const studentRows = overview?.students ?? [];
+  const normalizedStudentSearch = studentSearch.trim().toLowerCase();
+  const visibleStudentRows = useMemo(
+    () =>
+      normalizedStudentSearch
+        ? studentRows.filter((student) => student.studentName.toLowerCase().includes(normalizedStudentSearch))
+        : studentRows,
+    [normalizedStudentSearch, studentRows]
+  );
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -159,6 +168,14 @@ function Dashboard({
 
     return () => window.clearInterval(timer);
   }, [refreshOverview]);
+
+  useEffect(() => {
+    const visibleStudentIds = new Set(visibleStudentRows.map((student) => student.id));
+    setSelectedStudentIds((ids) => {
+      const nextIds = ids.filter((id) => visibleStudentIds.has(id));
+      return nextIds.length === ids.length ? ids : nextIds;
+    });
+  }, [visibleStudentRows]);
 
   async function uploadFile(endpoint: string, input: HTMLInputElement | null, label: string) {
     const file = input?.files?.[0];
@@ -332,7 +349,7 @@ function Dashboard({
 
   const stats = overview?.stats;
   const teacherIds = teacherRows.map((teacher) => teacher.id);
-  const studentIds = studentRows.map((student) => student.id);
+  const studentIds = visibleStudentRows.map((student) => student.id);
   const allTeachersSelected = teacherIds.length > 0 && selectedTeacherIds.length === teacherIds.length;
   const allStudentsSelected = studentIds.length > 0 && selectedStudentIds.length === studentIds.length;
 
@@ -486,7 +503,17 @@ function Dashboard({
 
       <section className="table-panel">
         <div className="table-panel-head">
-          <h3>学生查询状态</h3>
+          <div>
+            <h3>学生查询状态</h3>
+            <label className="student-search">
+              <span>搜索学生</span>
+              <input
+                value={studentSearch}
+                onChange={(event) => setStudentSearch(event.target.value)}
+                placeholder="输入学生姓名"
+              />
+            </label>
+          </div>
           {isAdmin ? (
             <div className="table-actions">
               <button onClick={exportQueryStatus}>导出查询情况</button>
@@ -530,7 +557,7 @@ function Dashboard({
               </tr>
             </thead>
             <tbody>
-              {studentRows.map((student) => (
+              {visibleStudentRows.map((student) => (
                 <tr key={student.id}>
                   {isAdmin ? (
                     <td>
@@ -600,6 +627,11 @@ function Dashboard({
                   </td>
                 </tr>
               ))}
+              {visibleStudentRows.length === 0 ? (
+                <tr>
+                  <td colSpan={isAdmin ? 11 : 10}>没有匹配的学生</td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

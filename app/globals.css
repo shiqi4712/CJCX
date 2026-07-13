@@ -750,6 +750,28 @@ button {
   margin: 0;
 }
 
+.student-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.student-search span {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.student-search input {
+  width: min(260px, 56vw);
+  min-height: 38px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
 .table-panel-head button,
 .table-actions button {
   min-height: 38px;
