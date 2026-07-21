@@ -575,6 +575,126 @@ button {
   font-weight: 900;
 }
 
+.ability-card {
+  position: relative;
+  z-index: 1;
+  margin: 14px;
+  padding: 16px 12px 14px;
+  border: 1px solid #eed8aa;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 92% 0, rgba(232, 184, 102, 0.18), transparent 30%),
+    #fffefa;
+}
+
+.ability-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 4px 12px;
+}
+
+.ability-head h3,
+.ability-head p {
+  margin: 0;
+}
+
+.ability-head h3 {
+  color: #6f1b10;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.ability-head p {
+  margin-top: 5px;
+  color: #7a665c;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ability-head > span {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(180deg, #e9b65d, #c88a2d);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ability-body {
+  display: grid;
+  grid-template-columns: 148px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #f1deb8;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.ability-radar {
+  width: 148px;
+  height: 132px;
+  overflow: visible;
+}
+
+.ability-grid {
+  fill: none;
+  stroke: rgba(210, 13, 24, 0.18);
+  stroke-width: 1;
+}
+
+.ability-axis {
+  stroke: rgba(210, 13, 24, 0.14);
+  stroke-width: 1;
+}
+
+.ability-shape {
+  fill: rgba(210, 13, 24, 0.14);
+  stroke: #d20d18;
+  stroke-width: 2;
+}
+
+.ability-dot {
+  fill: #fff;
+  stroke: #d20d18;
+  stroke-width: 2;
+}
+
+.ability-label {
+  fill: #7a3916;
+  font-size: 8.5px;
+  font-weight: 900;
+  text-anchor: middle;
+}
+
+.ability-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ability-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 34px;
+  padding: 8px 9px;
+  border-radius: 10px;
+  color: #6f1b10;
+  background: #fff7e8;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ability-item strong {
+  color: #d20d18;
+  font-size: 14px;
+}
+
 .course-time-card {
   position: relative;
   z-index: 1;

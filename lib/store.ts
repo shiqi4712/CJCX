@@ -5,6 +5,7 @@ import { getProgramAdmissionDetail, normalizeProgramType } from "./programs";
 import type {
   PublicTeacher,
   QueryLog,
+  QueryReleaseSettings,
   Role,
   SheetStudentRow,
   SheetTeacherRow,
@@ -51,6 +52,7 @@ type MemoryState = {
   students: Student[];
   teachers: TeacherAccount[];
   queryLogs: QueryLog[];
+  settings: QueryReleaseSettings;
   initialized: boolean;
 };
 
@@ -63,8 +65,63 @@ const memory = (globalThis.admissionMemoryState ??= {
   students: [],
   teachers: [],
   queryLogs: [],
+  settings: { resultOpenAt: null },
   initialized: false
 });
+
+function normalizeOpenAt(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+export async function getQueryReleaseSettings(): Promise<QueryReleaseSettings> {
+  await ensureReady();
+  if (!hasDatabase()) return memory.settings;
+
+  const rows = (await getSql().query(
+    "SELECT setting_value FROM system_settings WHERE setting_key = 'result_open_at' LIMIT 1"
+  )) as unknown as Array<{ setting_value: string | null }>;
+  return { resultOpenAt: normalizeOpenAt(rows[0]?.setting_value) };
+}
+
+export async function updateQueryReleaseSettings(input: QueryReleaseSettings) {
+  await ensureReady();
+  const resultOpenAt = normalizeOpenAt(input.resultOpenAt);
+
+  if (!hasDatabase()) {
+    memory.settings = { resultOpenAt };
+    return memory.settings;
+  }
+
+  const sql = getSql();
+  if (resultOpenAt) {
+    if (sql.dialect === "mysql") {
+      await sql.query(
+        `INSERT INTO system_settings (setting_key, setting_value)
+         VALUES ('result_open_at', $1)
+         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+        [resultOpenAt]
+      );
+    } else {
+      await sql.query(
+        `INSERT INTO system_settings (setting_key, setting_value)
+         VALUES ('result_open_at', $1)
+         ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = now()`,
+        [resultOpenAt]
+      );
+    }
+  } else {
+    await sql.query("DELETE FROM system_settings WHERE setting_key = 'result_open_at'");
+  }
+
+  return { resultOpenAt };
+}
+
+export async function isResultQueryOpen() {
+  const settings = await getQueryReleaseSettings();
+  return !settings.resultOpenAt || Date.now() >= new Date(settings.resultOpenAt).getTime();
+}
 
 async function ensureReady() {
   requireDatabaseInProduction();
@@ -129,6 +186,47 @@ function mapTeacher(row: Record<string, unknown>): TeacherAccount {
   };
 }
 
+export async function recordPendingReviewQuery(studentName: string) {
+  await ensureReady();
+  const normalized = normalizeName(studentName);
+  const queriedAt = nowText();
+
+  if (!hasDatabase()) {
+    const student = memory.students.find((item) => item.published && normalizeName(item.studentName) === normalized);
+    memory.queryLogs.unshift({
+      id: randomUUID(),
+      inputStudentName: studentName,
+      matchedStudentId: student?.id ?? null,
+      matchedStudentName: student?.studentName ?? null,
+      matchedTeacherName: student?.teacherName ?? null,
+      resultStatus: "pending_review",
+      queriedAt
+    });
+    return;
+  }
+
+  const sql = getSql();
+  const rows = (await sql.query(
+    `SELECT id, student_name, teacher_name FROM students
+     WHERE normalized_name = $1 AND published = true
+     ORDER BY created_at ASC, id ASC LIMIT 1`,
+    [normalized]
+  )) as unknown as Record<string, unknown>[];
+  const row = rows[0];
+  await sql.query(
+    `INSERT INTO query_logs (
+       id, input_student_name, matched_student_id, matched_student_name, matched_teacher_name, result_status
+     ) VALUES ($1, $2, $3, $4, $5, 'pending_review')`,
+    [
+      randomUUID(),
+      studentName,
+      row?.id ?? null,
+      row?.student_name ? String(row.student_name) : null,
+      row?.teacher_name ? String(row.teacher_name) : null
+    ]
+  );
+}
+
 export async function queryStudentByName(studentName: string) {
   await ensureReady();
   const normalized = normalizeName(studentName);
@@ -140,6 +238,8 @@ export async function queryStudentByName(studentName: string) {
       id: randomUUID(),
       inputStudentName: studentName,
       matchedStudentId: student?.id ?? null,
+      matchedStudentName: student?.studentName ?? null,
+      matchedTeacherName: student?.teacherName ?? null,
       resultStatus: student ? "success" : "not_found",
       queriedAt
     });
@@ -163,17 +263,19 @@ export async function queryStudentByName(studentName: string) {
 
   if (!row) {
     await sql.query(
-      `INSERT INTO query_logs (id, input_student_name, matched_student_id, result_status)
-       VALUES ($1, $2, NULL, 'not_found')`,
+      `INSERT INTO query_logs (
+         id, input_student_name, matched_student_id, matched_student_name, matched_teacher_name, result_status
+       ) VALUES ($1, $2, NULL, NULL, NULL, 'not_found')`,
       [logId, studentName]
     );
     return null;
   }
   if (Number(row.query_count) >= MAX_PARENT_QUERY_COUNT) {
     await sql.query(
-      `INSERT INTO query_logs (id, input_student_name, matched_student_id, result_status)
-       VALUES ($1, $2, $3, 'success')`,
-      [logId, studentName, row.id]
+      `INSERT INTO query_logs (
+         id, input_student_name, matched_student_id, matched_student_name, matched_teacher_name, result_status
+       ) VALUES ($1, $2, $3, $4, $5, 'success')`,
+      [logId, studentName, row.id, row.student_name, row.teacher_name]
     );
     return ALREADY_QUERIED_RESULT;
   }
@@ -192,9 +294,10 @@ export async function queryStudentByName(studentName: string) {
       unknown
     >[];
     await sql.query(
-      `INSERT INTO query_logs (id, input_student_name, matched_student_id, result_status)
-       VALUES ($1, $2, $3, 'success')`,
-      [logId, studentName, row.id]
+      `INSERT INTO query_logs (
+         id, input_student_name, matched_student_id, matched_student_name, matched_teacher_name, result_status
+       ) VALUES ($1, $2, $3, $4, $5, 'success')`,
+      [logId, studentName, row.id, row.student_name, row.teacher_name]
     );
     return mapStudent(mysqlUpdated[0]);
   }
@@ -206,9 +309,10 @@ export async function queryStudentByName(studentName: string) {
     [row.id]
   )) as unknown as Record<string, unknown>[];
   await sql.query(
-    `INSERT INTO query_logs (id, input_student_name, matched_student_id, result_status)
-     VALUES ($1, $2, $3, 'success')`,
-    [logId, studentName, row.id]
+    `INSERT INTO query_logs (
+       id, input_student_name, matched_student_id, matched_student_name, matched_teacher_name, result_status
+     ) VALUES ($1, $2, $3, $4, $5, 'success')`,
+    [logId, studentName, row.id, row.student_name, row.teacher_name]
   );
   return mapStudent(updated[0]);
 }
@@ -268,6 +372,8 @@ export async function getOverview(role: Role, teacherName?: string) {
       id: String(row.id),
       inputStudentName: String(row.input_student_name),
       matchedStudentId: row.matched_student_id ? String(row.matched_student_id) : null,
+      matchedStudentName: row.matched_student_name ? String(row.matched_student_name) : null,
+      matchedTeacherName: row.matched_teacher_name ? String(row.matched_teacher_name) : null,
       resultStatus: row.result_status as QueryLog["resultStatus"],
       queriedAt: new Date(String(row.queried_at)).toISOString()
     }));
@@ -275,7 +381,10 @@ export async function getOverview(role: Role, teacherName?: string) {
     students =
       role === "admin" ? [...memory.students] : memory.students.filter((item) => item.teacherName === teacherName);
     teachers = memory.teachers.map(({ passwordHash: _passwordHash, ...teacher }) => teacher);
-    queryLogs = role === "admin" ? memory.queryLogs.slice(0, 50) : [];
+    queryLogs =
+      role === "admin"
+        ? memory.queryLogs.slice(0, 50)
+        : memory.queryLogs.filter((log) => log.matchedTeacherName === teacherName).slice(0, 50);
   }
 
   return {
@@ -289,6 +398,7 @@ export async function getOverview(role: Role, teacherName?: string) {
     students,
     teachers,
     queryLogs,
+    settings: await getQueryReleaseSettings(),
     storageMode: hasDatabase() ? getSql().dialect : "memory"
   };
 }
@@ -720,6 +830,24 @@ export async function deleteStudents(ids: string[]) {
   return rows.length;
 }
 
+export async function deleteAllStudents() {
+  await ensureReady();
+
+  if (!hasDatabase()) {
+    const deletedCount = memory.students.length;
+    memory.students = [];
+    return deletedCount;
+  }
+
+  const sql = getSql();
+  if (sql.dialect === "mysql") {
+    return (await sql.execute("DELETE FROM students")).affectedRows;
+  }
+
+  const rows = (await sql.query("DELETE FROM students RETURNING id")) as unknown[];
+  return rows.length;
+}
+
 export async function updateTeacher(id: string, input: { active?: boolean; password?: string }) {
   await ensureReady();
   const passwordHash = input.password ? await hashPassword(input.password) : null;
@@ -815,5 +943,6 @@ export function resetMemoryStoreForTests() {
   memory.students = [];
   memory.teachers = [];
   memory.queryLogs = [];
+  memory.settings = { resultOpenAt: null };
   memory.initialized = false;
 }

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { ALREADY_QUERIED_RESULT, queryStudentByName } from "@/lib/store";
+import { ALREADY_QUERIED_RESULT, isResultQueryOpen, queryStudentByName, recordPendingReviewQuery } from "@/lib/store";
 import { cleanName } from "@/lib/validation";
 
 const ALREADY_QUERIED_MESSAGE = "查询次数已用完 请联系老师获取录取函";
+const QUERY_NOT_OPEN_MESSAGE = "成绩正在经教学中心审核中 请您耐心等待";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { studentName?: string } | null;
@@ -19,6 +20,11 @@ export async function POST(request: Request) {
       { message: "查询过于频繁，请稍后再试" },
       { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
     );
+  }
+
+  if (!(await isResultQueryOpen())) {
+    await recordPendingReviewQuery(studentName);
+    return NextResponse.json({ message: QUERY_NOT_OPEN_MESSAGE }, { status: 423 });
   }
 
   const student = await queryStudentByName(studentName);

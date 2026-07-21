@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
-import { deleteStudents } from "@/lib/store";
+import { deleteAllStudents, deleteStudents } from "@/lib/store";
 import { isUuid } from "@/lib/validation";
 
 export async function POST(request: Request) {
   const session = await requireSession("admin");
   if (!session) return NextResponse.json({ message: "无管理员权限" }, { status: 403 });
 
-  const body = (await request.json().catch(() => null)) as { ids?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { deleteAll?: boolean; ids?: unknown } | null;
+
+  if (body?.deleteAll) {
+    const deletedCount = await deleteAllStudents();
+    return NextResponse.json({ ok: true, deletedCount });
+  }
+
   const ids = Array.isArray(body?.ids) ? body.ids.filter((id): id is string => typeof id === "string") : [];
   const uniqueIds = [...new Set(ids)];
 

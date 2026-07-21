@@ -157,18 +157,36 @@ async function initializePostgresSchema(sql: SqlClient) {
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS overall_score varchar(30)");
 
   await sql.query(`
+    CREATE TABLE IF NOT EXISTS system_settings (
+      setting_key varchar(80) PRIMARY KEY,
+      setting_value text,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  await sql.query(`
     CREATE TABLE IF NOT EXISTS query_logs (
       id uuid PRIMARY KEY,
       input_student_name varchar(50) NOT NULL,
       matched_student_id uuid REFERENCES students(id) ON DELETE SET NULL,
-      result_status varchar(20) NOT NULL CHECK (result_status IN ('success', 'not_found')),
+      matched_student_name varchar(50),
+      matched_teacher_name varchar(50),
+      result_status varchar(20) NOT NULL CHECK (result_status IN ('success', 'not_found', 'pending_review')),
       queried_at timestamptz NOT NULL DEFAULT now()
     )
   `);
 
+  await sql.query("ALTER TABLE query_logs ADD COLUMN IF NOT EXISTS matched_student_name varchar(50)");
+  await sql.query("ALTER TABLE query_logs ADD COLUMN IF NOT EXISTS matched_teacher_name varchar(50)");
+  await sql.query("ALTER TABLE query_logs DROP CONSTRAINT IF EXISTS query_logs_result_status_check");
+  await sql.query(
+    "ALTER TABLE query_logs ADD CONSTRAINT query_logs_result_status_check CHECK (result_status IN ('success', 'not_found', 'pending_review'))"
+  );
+
   await sql.query("CREATE INDEX IF NOT EXISTS students_query_idx ON students(normalized_name, published, created_at)");
   await sql.query("CREATE INDEX IF NOT EXISTS students_teacher_idx ON students(teacher_name)");
   await sql.query("CREATE INDEX IF NOT EXISTS query_logs_time_idx ON query_logs(queried_at DESC)");
+  await sql.query("CREATE INDEX IF NOT EXISTS query_logs_teacher_idx ON query_logs(matched_teacher_name, queried_at DESC)");
 }
 
 async function initializeMySqlSchema(sql: SqlClient) {
@@ -215,21 +233,35 @@ async function initializeMySqlSchema(sql: SqlClient) {
   await addMySqlColumnIfMissing(sql, "students", "overall_score", "varchar(30)");
 
   await sql.query(`
+    CREATE TABLE IF NOT EXISTS system_settings (
+      setting_key varchar(80) PRIMARY KEY,
+      setting_value text,
+      updated_at timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+    ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await sql.query(`
     CREATE TABLE IF NOT EXISTS query_logs (
       id char(36) PRIMARY KEY,
       input_student_name varchar(50) NOT NULL,
       matched_student_id char(36),
+      matched_student_name varchar(50),
+      matched_teacher_name varchar(50),
       result_status varchar(20) NOT NULL,
       queried_at timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-      CHECK (result_status IN ('success', 'not_found')),
+      CHECK (result_status IN ('success', 'not_found', 'pending_review')),
       CONSTRAINT query_logs_student_fk FOREIGN KEY (matched_student_id)
         REFERENCES students(id) ON DELETE SET NULL
     ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
+  await addMySqlColumnIfMissing(sql, "query_logs", "matched_student_name", "varchar(50)");
+  await addMySqlColumnIfMissing(sql, "query_logs", "matched_teacher_name", "varchar(50)");
+
   await createMySqlIndexIfMissing(sql, "students", "students_query_idx", "normalized_name, published, created_at");
   await createMySqlIndexIfMissing(sql, "students", "students_teacher_idx", "teacher_name");
   await createMySqlIndexIfMissing(sql, "query_logs", "query_logs_time_idx", "queried_at");
+  await createMySqlIndexIfMissing(sql, "query_logs", "query_logs_teacher_idx", "matched_teacher_name, queried_at");
 }
 
 async function addMySqlColumnIfMissing(sql: SqlClient, tableName: string, columnName: string, definition: string) {

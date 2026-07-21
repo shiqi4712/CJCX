@@ -32,6 +32,18 @@ type Overview = {
     role: "admin" | "teacher";
     active: boolean;
   }>;
+  queryLogs: Array<{
+    id: string;
+    inputStudentName: string;
+    matchedStudentId: string | null;
+    matchedStudentName: string | null;
+    matchedTeacherName: string | null;
+    resultStatus: "success" | "not_found" | "pending_review";
+    queriedAt: string;
+  }>;
+  settings: {
+    resultOpenAt: string | null;
+  };
   storageMode: "postgres" | "mysql" | "memory";
   session?: LoginState;
 };
@@ -149,11 +161,11 @@ function Dashboard({
   const templateRef = useRef<HTMLInputElement>(null);
   const planStudentsRef = useRef<HTMLInputElement>(null);
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
-  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [studentSearch, setStudentSearch] = useState("");
   const [studentPage, setStudentPage] = useState(1);
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentScore, setNewStudentScore] = useState("");
+  const [resultOpenAtInput, setResultOpenAtInput] = useState("");
   const isAdmin = loginState.role === "admin";
   const teacherRows = overview?.teachers.filter((teacher) => teacher.role === "teacher") ?? [];
   const studentRows = overview?.students ?? [];
@@ -172,6 +184,7 @@ function Dashboard({
   }, [filteredStudentRows, studentPage]);
   const totalQueryCount = studentRows.reduce((sum, student) => sum + student.queryCount, 0);
   const queryRate = statsPercent(studentRows.filter((student) => student.queried).length, studentRows.length);
+  const pendingReviewLogs = (overview?.queryLogs ?? []).filter((log) => log.resultStatus === "pending_review");
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -182,14 +195,6 @@ function Dashboard({
   }, [refreshOverview]);
 
   useEffect(() => {
-    const visibleStudentIds = new Set(visibleStudentRows.map((student) => student.id));
-    setSelectedStudentIds((ids) => {
-      const nextIds = ids.filter((id) => visibleStudentIds.has(id));
-      return nextIds.length === ids.length ? ids : nextIds;
-    });
-  }, [visibleStudentRows]);
-
-  useEffect(() => {
     setStudentPage(1);
   }, [normalizedStudentSearch]);
 
@@ -198,6 +203,10 @@ function Dashboard({
       setStudentPage(studentPageCount);
     }
   }, [studentPage, studentPageCount]);
+
+  useEffect(() => {
+    setResultOpenAtInput(toDateTimeLocalValue(overview?.settings.resultOpenAt ?? null));
+  }, [overview?.settings.resultOpenAt]);
 
   async function uploadFile(endpoint: string, input: HTMLInputElement | null, label: string) {
     const file = input?.files?.[0];
@@ -261,6 +270,33 @@ function Dashboard({
     await refreshOverview();
   }
 
+  async function saveResultOpenAt(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const resultOpenAt = resultOpenAtInput ? new Date(resultOpenAtInput).toISOString() : null;
+    await saveQueryReleaseSettings(resultOpenAt);
+  }
+
+  async function clearResultOpenAt() {
+    setResultOpenAtInput("");
+    await saveQueryReleaseSettings(null);
+  }
+
+  async function saveQueryReleaseSettings(resultOpenAt: string | null) {
+    const response = await fetch("/api/admin/settings/query-release", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resultOpenAt })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setStatus(data.message ?? "开放查询时间保存失败");
+      return;
+    }
+
+    setStatus(resultOpenAt ? `已设置开放查询时间：${formatDateTime(resultOpenAt)}` : "已清空开放时间，家长可立即查询");
+    await refreshOverview();
+  }
+
   async function resetQuery(studentId: string, studentName: string) {
     if (!window.confirm(`确认重置 ${studentName} 的查询资格？重置后家长可以重新查询 8 次。`)) {
       return;
@@ -299,6 +335,31 @@ function Dashboard({
 
     onDone();
     setStatus(`已删除 ${data.deletedCount ?? ids.length} 条${label}`);
+    await refreshOverview();
+  }
+
+  async function deleteAllStudentRows() {
+    if (studentRows.length === 0) {
+      setStatus("当前没有可删除的学生名单");
+      return;
+    }
+    if (!window.confirm(`确认删除全部 ${studentRows.length} 条学生名单？此操作不可恢复，但不会删除老师账号。`)) {
+      return;
+    }
+
+    const response = await fetch("/api/admin/students/bulk-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deleteAll: true })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setStatus(data.message ?? "删除全部学生名单失败");
+      return;
+    }
+
+    setStudentPage(1);
+    setStatus(`已删除全部学生名单：${data.deletedCount ?? studentRows.length} 条`);
     await refreshOverview();
   }
 
@@ -397,9 +458,7 @@ function Dashboard({
 
   const stats = overview?.stats;
   const teacherIds = teacherRows.map((teacher) => teacher.id);
-  const studentIds = visibleStudentRows.map((student) => student.id);
   const allTeachersSelected = teacherIds.length > 0 && selectedTeacherIds.length === teacherIds.length;
-  const allStudentsSelected = studentIds.length > 0 && selectedStudentIds.length === studentIds.length;
 
   return (
     <section className="dashboard">
@@ -416,6 +475,35 @@ function Dashboard({
 
       {overview?.storageMode === "memory" ? (
         <div className="console-message">当前为本地内存模式；部署前配置 DATABASE_URL 后将自动使用数据库。</div>
+      ) : null}
+
+      {isAdmin ? (
+        <section className="tool-panel wide">
+          <h3>成绩开放查询时间</h3>
+          <p>
+            设置后，家长在该时间之前查询会看到“成绩正在经教学中心审核中 请您耐心等待”；到点后才展示录取结果，提前查询不会计入查询次数。
+          </p>
+          <form className="single-student-form" onSubmit={saveResultOpenAt}>
+            <label>
+              <span>开放时间</span>
+              <input
+                type="datetime-local"
+                value={resultOpenAtInput}
+                onChange={(event) => setResultOpenAtInput(event.target.value)}
+              />
+            </label>
+            <button type="submit">保存开放时间</button>
+            <button type="button" onClick={() => void clearResultOpenAt()}>
+              清空并立即开放
+            </button>
+          </form>
+          <p>
+            当前设置：
+            {overview?.settings.resultOpenAt
+              ? `${formatDateTime(overview.settings.resultOpenAt)} 后开放`
+              : "未限制，家长可立即查询"}
+          </p>
+        </section>
       ) : null}
 
       <div className="metric-grid">
@@ -570,6 +658,44 @@ function Dashboard({
       <section className="table-panel">
         <div className="table-panel-head">
           <div>
+            <h3>审核期访问记录</h3>
+            <p>家长在成绩开放前点击查询会记录在这里，但不会计入查询次数，也不会改变学生查询状态。</p>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>访问时间</th>
+                <th>输入姓名</th>
+                <th>匹配学生</th>
+                <th>老师</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingReviewLogs.map((log) => (
+                <tr key={log.id}>
+                  <td>{formatDateTime(log.queriedAt) || "-"}</td>
+                  <td>{log.inputStudentName}</td>
+                  <td>{log.matchedStudentName ?? "-"}</td>
+                  <td>{log.matchedTeacherName ?? "-"}</td>
+                  <td className="pending">审核中访问</td>
+                </tr>
+              ))}
+              {pendingReviewLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>暂无审核期访问记录</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="table-panel">
+        <div className="table-panel-head">
+          <div>
             <h3>学生查询状态</h3>
             <label className="student-search">
               <span>搜索学生</span>
@@ -587,14 +713,10 @@ function Dashboard({
               </span>
               <button onClick={exportQueryStatus}>导出查询情况</button>
               <button
-                disabled={selectedStudentIds.length === 0}
-                onClick={() =>
-                  void bulkDelete("/api/admin/students/bulk-delete", selectedStudentIds, "学生成绩", () =>
-                    setSelectedStudentIds([])
-                  )
-                }
+                disabled={studentRows.length === 0}
+                onClick={() => void deleteAllStudentRows()}
               >
-                批量删除学员成绩（{selectedStudentIds.length}）
+                删除全部学生名单
               </button>
             </div>
           ) : null}
@@ -603,16 +725,6 @@ function Dashboard({
           <table>
             <thead>
               <tr>
-                {isAdmin ? (
-                  <th>
-                    <input
-                      aria-label="全选学生"
-                      checked={allStudentsSelected}
-                      type="checkbox"
-                      onChange={() => toggleAll(studentIds, selectedStudentIds, setSelectedStudentIds)}
-                    />
-                  </th>
-                ) : null}
                 <th>学生姓名</th>
                 <th>成绩</th>
                 <th>综合得分</th>
@@ -628,16 +740,6 @@ function Dashboard({
             <tbody>
               {visibleStudentRows.map((student) => (
                 <tr key={student.id}>
-                  {isAdmin ? (
-                    <td>
-                      <input
-                        aria-label={`选择学生 ${student.studentName}`}
-                        checked={selectedStudentIds.includes(student.id)}
-                        type="checkbox"
-                        onChange={() => toggleSelection(student.id, selectedStudentIds, setSelectedStudentIds)}
-                      />
-                    </td>
-                  ) : null}
                   <td>{student.studentName}</td>
                   <td>{student.score}</td>
                   <td>{student.overallScore ?? "-"}</td>
@@ -698,7 +800,7 @@ function Dashboard({
               ))}
               {visibleStudentRows.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 11 : 10}>没有匹配的学生</td>
+                  <td colSpan={10}>没有匹配的学生</td>
                 </tr>
               ) : null}
             </tbody>
@@ -756,4 +858,14 @@ function formatDateTime(value: string | null) {
   }).formatToParts(date);
   const pick = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
   return `${pick("year")}-${pick("month")}-${pick("day")} ${pick("hour")}:${pick("minute")}`;
+}
+
+function toDateTimeLocalValue(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (number: number) => String(number).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
+    date.getMinutes()
+  )}`;
 }

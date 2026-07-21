@@ -37,8 +37,14 @@ export type QueryLog = {
   id: string;
   inputStudentName: string;
   matchedStudentId: string | null;
-  resultStatus: "success" | "not_found";
+  matchedStudentName: string | null;
+  matchedTeacherName: string | null;
+  resultStatus: "success" | "not_found" | "pending_review";
   queriedAt: string;
+};
+
+export type QueryReleaseSettings = {
+  resultOpenAt: string | null;
 };
 
 export type SheetStudentRow = {
