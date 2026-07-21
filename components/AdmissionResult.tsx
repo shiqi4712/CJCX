@@ -97,8 +97,8 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
     { label: "综合得分", value: result.overallScore || "未填写" },
     { label: "录取结果", value: programName, tone: "strong" },
     { label: "录取详情", value: getProgramAdmissionDetail(programType), wide: true },
-    { label: "学习目标", value: getProgramLearningGoal(programType), wide: true },
-    { label: `${programName}简介`, value: getProgramIntro(programType), wide: true }
+    { label: "孩子成长目标", value: getProgramLearningGoal(programType), wide: true },
+    { label: "班级介绍", value: getProgramIntro(programType), wide: true }
   ];
   const savedCourseTime = splitCourseTime(result.preferredCourseTime);
   const [selectedDay, setSelectedDay] = useState(savedCourseTime.day);
