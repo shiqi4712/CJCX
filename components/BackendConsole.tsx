@@ -168,6 +168,9 @@ function Dashboard({
   const [studentPage, setStudentPage] = useState(1);
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentScore, setNewStudentScore] = useState("");
+  const [newStudentHomeworkLessonCount, setNewStudentHomeworkLessonCount] = useState("");
+  const [newStudentVideoCount, setNewStudentVideoCount] = useState("");
+  const [newStudentMessageCount, setNewStudentMessageCount] = useState("");
   const [resultOpenAtInput, setResultOpenAtInput] = useState("");
   const isAdmin = loginState.role === "admin";
   const teacherRows = overview?.teachers.filter((teacher) => teacher.role === "teacher") ?? [];
@@ -259,7 +262,13 @@ function Dashboard({
     const response = await fetch("/api/teacher/students", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentName, score })
+      body: JSON.stringify({
+        studentName,
+        score,
+        homeworkLessonCount: newStudentHomeworkLessonCount,
+        videoCount: newStudentVideoCount,
+        messageCount: newStudentMessageCount
+      })
     });
     const data = await response.json();
     if (!response.ok) {
@@ -269,6 +278,9 @@ function Dashboard({
 
     setNewStudentName("");
     setNewStudentScore("");
+    setNewStudentHomeworkLessonCount("");
+    setNewStudentVideoCount("");
+    setNewStudentMessageCount("");
     setStatus(`${studentName} 已添加`);
     await refreshOverview();
   }
@@ -567,7 +579,7 @@ function Dashboard({
 
       <section className="tool-panel wide">
         <h3>单个学员添加</h3>
-        <p>{isAdmin ? "仅填写一个学生姓名和成绩，添加后默认未分配老师。" : "仅填写一个学生姓名和成绩，添加后自动归属当前老师。"}</p>
+        <p>{isAdmin ? "仅填写一个学生，添加后默认未分配老师；行为数据留空按 0 计算。" : "仅填写一个学生，添加后自动归属当前老师；行为数据留空按 0 计算。"}</p>
         <form className="single-student-form" onSubmit={addSingleStudent}>
           <label>
             <span>学生姓名</span>
@@ -576,6 +588,39 @@ function Dashboard({
           <label>
             <span>学生成绩</span>
             <input value={newStudentScore} onChange={(event) => setNewStudentScore(event.target.value)} placeholder="如 A+ / A / B" />
+          </label>
+          <label>
+            <span>提交作业课次数</span>
+            <input
+              min="0"
+              step="1"
+              type="number"
+              value={newStudentHomeworkLessonCount}
+              onChange={(event) => setNewStudentHomeworkLessonCount(event.target.value)}
+              placeholder="如 3"
+            />
+          </label>
+          <label>
+            <span>录制视频次数</span>
+            <input
+              min="0"
+              step="1"
+              type="number"
+              value={newStudentVideoCount}
+              onChange={(event) => setNewStudentVideoCount(event.target.value)}
+              placeholder="如 1"
+            />
+          </label>
+          <label>
+            <span>学生消息数</span>
+            <input
+              min="0"
+              step="1"
+              type="number"
+              value={newStudentMessageCount}
+              onChange={(event) => setNewStudentMessageCount(event.target.value)}
+              placeholder="如 45"
+            />
           </label>
           <button type="submit">添加学员</button>
         </form>

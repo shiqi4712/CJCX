@@ -27,6 +27,20 @@ export async function POST(request: Request) {
   if (!score) return NextResponse.json({ message: "学生成绩不能为空" }, { status: 400 });
 
   const teacherName = session.role === "teacher" ? session.teacherName : "未分配老师";
-  const result = await importStudents([{ studentName, score, teacherName }]);
+  const result = await importStudents([
+    {
+      studentName,
+      score,
+      teacherName,
+      homeworkLessonCount: toNonNegativeInteger(body.homeworkLessonCount),
+      videoCount: toNonNegativeInteger(body.videoCount),
+      messageCount: toNonNegativeInteger(body.messageCount)
+    }
+  ]);
   return NextResponse.json(result);
+}
+
+function toNonNegativeInteger(value: unknown) {
+  const numeric = Number(String(value ?? "").trim());
+  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : 0;
 }
