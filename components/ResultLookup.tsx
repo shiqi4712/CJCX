@@ -25,6 +25,7 @@ export function ResultLookup() {
     let settled = false;
     const reviewTimer = window.setTimeout(() => {
       if (cancelled || settled) return;
+      settled = true;
       setResult(null);
       setLoading(false);
       setMessage(REVIEW_MESSAGE);
@@ -42,7 +43,7 @@ export function ResultLookup() {
       }).catch(() => null);
 
       if (!response) {
-        if (cancelled) return;
+        if (cancelled || settled) return;
         settled = true;
         window.clearTimeout(reviewTimer);
         setResult(null);
@@ -53,7 +54,7 @@ export function ResultLookup() {
 
       const data = await response.json().catch(() => ({}));
 
-      if (cancelled) return;
+      if (cancelled || settled) return;
 
       if (response.status === 423) {
         const remainingMs = Math.max(0, MIN_REVIEW_LOADING_MS - (Date.now() - startedAt));
