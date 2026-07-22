@@ -29,10 +29,34 @@ export function ResultLookup() {
       setLoading(true);
       setMessage("正在查询...");
 
+      const statusResponse = await fetch("/api/query/status", {
+        cache: "no-store",
+        signal: controller.signal
+      }).catch(() => null);
+      const releaseState = statusResponse?.ok
+        ? ((await statusResponse.json().catch(() => null)) as { open?: boolean } | null)
+        : null;
+
+      if (releaseState?.open === false) {
+        void fetch("/api/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ studentName }),
+          cache: "no-store"
+        }).catch(() => null);
+        window.clearTimeout(requestTimer);
+        if (cancelled) return;
+        setResult(null);
+        setLoading(false);
+        setMessage(REVIEW_MESSAGE);
+        return;
+      }
+
       const response = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ studentName }),
+        cache: "no-store",
         signal: controller.signal
       }).catch(() => null);
 
