@@ -1086,6 +1086,245 @@ button {
   font-weight: 800;
 }
 
+/* Classic full-red parent theme. */
+.parent-shell {
+  padding: 0;
+  background: #b70f12;
+}
+
+.query-hero {
+  min-height: 100vh;
+  padding: 24px 24px 34px;
+  border: 0;
+  border-radius: 0;
+  color: #fff;
+  background:
+    linear-gradient(135deg, rgba(255, 214, 132, 0.16), transparent 34%),
+    radial-gradient(circle at 76% 8%, rgba(255, 195, 77, 0.24), transparent 28%),
+    linear-gradient(180deg, #e32222 0%, #b6080d 58%, #6f0709 100%);
+}
+
+.query-hero::before,
+.query-hero::after {
+  display: none;
+}
+
+.brand-strip img {
+  width: min(100%, 372px);
+  filter: none;
+  opacity: 1;
+}
+
+.hero-copy {
+  margin-top: 270px;
+}
+
+.hero-copy p {
+  margin: 0 0 12px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.hero-copy p::before {
+  content: none;
+}
+
+.hero-copy h1 {
+  color: #fff;
+  font-size: clamp(22px, 6vw, 26px);
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.hero-copy span {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.lookup-panel {
+  margin-top: 28px;
+  padding: 24px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 20px;
+  background: rgba(88, 0, 0, 0.18);
+}
+
+.lookup-panel label span {
+  display: block;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.lookup-panel input {
+  height: 58px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 18px;
+  color: #333;
+  background: #fff8f8;
+  box-shadow: none;
+}
+
+.lookup-panel button {
+  margin-top: 20px;
+  border-radius: 16px;
+  background: #ff3434;
+  box-shadow: none;
+}
+
+.inline-message {
+  margin: -28px 18px 22px;
+  color: #7a1900;
+  background: #fff3e6;
+  border: 0;
+}
+
+.result-page {
+  background: #ef151a;
+}
+
+.result-state {
+  color: #fff;
+  background:
+    linear-gradient(135deg, rgba(255, 214, 132, 0.16), transparent 34%),
+    linear-gradient(180deg, #e32222 0%, #b6080d 58%, #6f0709 100%);
+}
+
+.result-state img {
+  filter: none;
+  opacity: 1;
+}
+
+.result-state a,
+.result-actions a {
+  color: #b9151c;
+  background: #fff8f0;
+}
+
+.certificate {
+  background: linear-gradient(180deg, #ef2e28, #a5090f);
+}
+
+.certificate-frame {
+  border-color: rgba(230, 180, 90, 0.95);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at -8% 0, rgba(230, 180, 90, 0.2), transparent 22%),
+    linear-gradient(180deg, #fff8ea, #fffdf8);
+  box-shadow: 0 18px 36px rgba(68, 8, 8, 0.28);
+}
+
+.certificate-frame::before,
+.certificate-frame::after {
+  border-color: rgba(232, 184, 102, 0.36);
+}
+
+.admission-letter .invitation-head {
+  background:
+    radial-gradient(circle at 14% 18%, rgba(255, 238, 180, 0.18), transparent 24%),
+    linear-gradient(180deg, #ef3b32, #bd0c16);
+}
+
+.admission-letter .invitation-head h4 {
+  color: #ffe8a8;
+}
+
+.admission-letter .invitation-body {
+  background: #fffefa;
+}
+
+.letter-student-line {
+  color: #3d2b24;
+}
+
+.letter-student-line strong {
+  color: #c90f1a;
+}
+
+.invitation-body .letter-status {
+  color: var(--green);
+}
+
+.result-summary {
+  margin-top: 2px;
+}
+
+.summary-item,
+.ability-card,
+.result-detail-card,
+.course-time-card {
+  border-color: #eed8aa;
+  background: #fffefa;
+}
+
+.summary-item {
+  background: #fff7e8;
+}
+
+.summary-item strong,
+.ability-copy h3,
+.result-detail-card h3,
+.course-time-card h3,
+.course-picker-group > span {
+  color: #6f1b10;
+}
+
+.summary-item span,
+.ability-copy p,
+.result-detail-card p {
+  color: #76584a;
+}
+
+.ability-grid {
+  stroke: rgba(210, 13, 24, 0.18);
+}
+
+.ability-axis {
+  stroke: rgba(210, 13, 24, 0.14);
+}
+
+.ability-shape {
+  fill: rgba(210, 13, 24, 0.14);
+  stroke: #d20d18;
+}
+
+.ability-dot {
+  stroke: #d20d18;
+}
+
+.ability-label {
+  fill: #7a3916;
+}
+
+.course-choice-grid button {
+  border-color: rgba(228, 189, 108, 0.9);
+  color: #6b3518;
+  background: #fff;
+}
+
+.course-choice-grid button.active,
+.course-confirm {
+  border-color: #d91120;
+  color: #fff;
+  background: linear-gradient(180deg, #ee2f2f, #bd0c16);
+  box-shadow: 0 8px 16px rgba(150, 10, 18, 0.2);
+}
+
+.course-time-message {
+  color: #b9151c;
+}
+
+.certificate-footer p {
+  color: #8f1619;
+}
+
+.result-actions {
+  background: #a5090f;
+}
+
 .console-shell {
   width: min(1180px, 100%);
   margin: 0 auto;
