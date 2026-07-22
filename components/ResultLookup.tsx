@@ -22,6 +22,13 @@ export function ResultLookup() {
     }
 
     let cancelled = false;
+    let settled = false;
+    const reviewTimer = window.setTimeout(() => {
+      if (cancelled || settled) return;
+      setResult(null);
+      setLoading(false);
+      setMessage(REVIEW_MESSAGE);
+    }, MIN_REVIEW_LOADING_MS);
 
     async function fetchResult() {
       setLoading(true);
@@ -32,8 +39,19 @@ export function ResultLookup() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ studentName })
-      });
-      const data = await response.json();
+      }).catch(() => null);
+
+      if (!response) {
+        if (cancelled) return;
+        settled = true;
+        window.clearTimeout(reviewTimer);
+        setResult(null);
+        setLoading(false);
+        setMessage("查询暂时失败，请稍后重试");
+        return;
+      }
+
+      const data = await response.json().catch(() => ({}));
 
       if (cancelled) return;
 
@@ -45,6 +63,8 @@ export function ResultLookup() {
         if (cancelled) return;
       }
 
+      settled = true;
+      window.clearTimeout(reviewTimer);
       setLoading(false);
       if (!response.ok) {
         setResult(null);
@@ -60,6 +80,7 @@ export function ResultLookup() {
 
     return () => {
       cancelled = true;
+      window.clearTimeout(reviewTimer);
     };
   }, [studentName]);
 
