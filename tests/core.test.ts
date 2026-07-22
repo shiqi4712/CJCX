@@ -22,7 +22,6 @@ import {
   queryStudentByName,
   deleteStudents,
   deleteTeachers,
-  ALREADY_QUERIED_RESULT,
   resetStudentQuery,
   resetMemoryStoreForTests
 } from "../lib/store";
@@ -192,22 +191,16 @@ test("only S A A+ and 前10% scores are admitted", async () => {
 
 test("same-name query returns the earliest published record and records status", async () => {
   const result = await queryStudentByName("张小明");
-  assert.notEqual(result, ALREADY_QUERIED_RESULT);
-  if (result === ALREADY_QUERIED_RESULT) throw new Error("first query should return student");
   assert.equal(result?.teacherName, "王老师");
   assert.equal(result?.queryCount, 1);
   const overview = await getOverview("admin");
   assert.equal(overview.queryLogs[0].resultStatus, "success");
   assert.equal(overview.students.find((student) => student.studentName === "张小明")?.queried, true);
 
-  for (let expectedCount = 2; expectedCount <= 8; expectedCount += 1) {
+  for (let attempt = 2; attempt <= 9; attempt += 1) {
     const nextQuery = await queryStudentByName("张小明");
-    assert.notEqual(nextQuery, ALREADY_QUERIED_RESULT);
-    if (nextQuery === ALREADY_QUERIED_RESULT) throw new Error(`query ${expectedCount} should return student`);
-    assert.equal(nextQuery?.queryCount, expectedCount);
+    assert.equal(nextQuery?.queryCount, 1);
   }
-
-  assert.equal(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
 
   assert.equal(await queryStudentByName("不存在"), null);
   assert.equal((await getOverview("admin")).queryLogs[0].resultStatus, "not_found");
@@ -223,13 +216,10 @@ test("teacher can reset assigned student query eligibility", async () => {
   assert.equal(reset?.queryCount, 0);
 
   const result = await queryStudentByName("张小明");
-  assert.notEqual(result, ALREADY_QUERIED_RESULT);
-  if (result === ALREADY_QUERIED_RESULT) throw new Error("query after reset should return student");
   assert.equal(result?.queryCount, 1);
   for (let count = 2; count <= 8; count += 1) {
-    assert.notEqual(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
+    assert.equal((await queryStudentByName("张小明"))?.queryCount, 1);
   }
-  assert.equal(await queryStudentByName("张小明"), ALREADY_QUERIED_RESULT);
 });
 
 test("bulk delete removes selected teachers and students", async () => {

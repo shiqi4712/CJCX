@@ -15,8 +15,6 @@ import type {
 
 const normalizeName = (value: string) => value.trim().replace(/\s+/g, "").toLowerCase();
 const nowText = () => new Date().toISOString();
-export const ALREADY_QUERIED_RESULT = "already_queried" as const;
-const MAX_PARENT_QUERY_COUNT = 8;
 
 function generateOverallScore(admissionStatus: string) {
   const admitted = admissionStatus === "已录取";
@@ -247,8 +245,7 @@ export async function queryStudentByName(studentName: string) {
       queriedAt
     });
     if (!student) return null;
-    if (student.queryCount >= MAX_PARENT_QUERY_COUNT) return ALREADY_QUERIED_RESULT;
-    student.queryCount += 1;
+    student.queryCount = 1;
     student.queried = true;
     student.lastQuery = queriedAt;
     return student;
@@ -273,21 +270,11 @@ export async function queryStudentByName(studentName: string) {
     );
     return null;
   }
-  if (Number(row.query_count) >= MAX_PARENT_QUERY_COUNT) {
-    await sql.query(
-      `INSERT INTO query_logs (
-         id, input_student_name, matched_student_id, matched_student_name, matched_teacher_name, result_status
-       ) VALUES ($1, $2, $3, $4, $5, 'success')`,
-      [logId, studentName, row.id, row.student_name, row.teacher_name]
-    );
-    return ALREADY_QUERIED_RESULT;
-  }
-
   if (sql.dialect === "mysql") {
     await sql.query(
       `UPDATE students SET
          queried = true,
-         query_count = query_count + 1,
+         query_count = 1,
          last_query = now(), updated_at = now()
        WHERE id = $1`,
       [row.id]
@@ -306,7 +293,7 @@ export async function queryStudentByName(studentName: string) {
   }
 
   const updated = (await sql.query(
-    `UPDATE students SET query_count = query_count + 1,
+    `UPDATE students SET query_count = 1,
        queried = true,
        last_query = now(), updated_at = now() WHERE id = $1 RETURNING *`,
     [row.id]

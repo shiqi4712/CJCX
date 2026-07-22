@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { ALREADY_QUERIED_RESULT, isResultQueryOpen, queryStudentByName, recordPendingReviewQuery } from "@/lib/store";
+import { isResultQueryOpen, queryStudentByName, recordPendingReviewQuery } from "@/lib/store";
 import { cleanName } from "@/lib/validation";
 
-const ALREADY_QUERIED_MESSAGE = "查询次数已用完 请联系老师获取录取函";
 const QUERY_NOT_OPEN_MESSAGE = "成绩正在经教学中心审核中 请您耐心等待";
 
 export async function POST(request: Request) {
@@ -31,9 +30,6 @@ export async function POST(request: Request) {
 
   if (!student) {
     return NextResponse.json({ message: "未查询到相关结果" }, { status: 404 });
-  }
-  if (student === ALREADY_QUERIED_RESULT) {
-    return NextResponse.json({ message: ALREADY_QUERIED_MESSAGE }, { status: 409 });
   }
 
   return NextResponse.json({
