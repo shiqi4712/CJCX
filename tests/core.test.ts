@@ -98,6 +98,34 @@ test("CSV import supports quoted fields, teacher assignment and program type", a
   ]);
 });
 
+test("student import accepts flexible behavior headers and values", async () => {
+  const csv = new File(
+    [
+      [
+        "姓名,成绩,老师,班型,作业次数,视频录制次数,消息条数",
+        "灵活学生,A,王老师,科特班,3次,1次,45条"
+      ].join("\n")
+    ],
+    "students-flexible.csv",
+    {
+      type: "text/csv"
+    }
+  );
+  const rows = toStudentRows(await parseSheetFile(csv));
+  assert.deepEqual(rows, [
+    {
+      studentName: "灵活学生",
+      score: "A",
+      overallScore: null,
+      teacherName: "王老师",
+      programType: "科特班",
+      homeworkLessonCount: 3,
+      videoCount: 1,
+      messageCount: 45
+    }
+  ]);
+});
+
 test("duplicate imports update records and teachers only see assigned students", async () => {
   resetMemoryStoreForTests();
   await importTeachers([

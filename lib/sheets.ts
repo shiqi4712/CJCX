@@ -167,20 +167,58 @@ function parseXml(xml: string) {
 export function toStudentRows(rows: RecordRow[]): SheetStudentRow[] {
   return rows
     .map((row) => ({
-      studentName: String(row["学生姓名"] ?? "").trim(),
-      score: String(row["成绩"] ?? "").trim(),
-      overallScore: String(row["综合得分"] ?? row["分数"] ?? row["得分"] ?? row["综合分数"] ?? row["总分"] ?? "").trim() || null,
-      teacherName: String(row["老师姓名"] ?? "未分配老师").trim() || "未分配老师",
-      programType: normalizeProgramType(String(row["班级类型"] ?? row["班型"] ?? row["录取班级"] ?? row["班级"] ?? "")),
-      homeworkLessonCount: toNonNegativeInteger(row["提交作业课次数"] ?? row["提交作业数"] ?? row["作业课次数"] ?? row["作业数量"]),
-      videoCount: toNonNegativeInteger(row["录制视频次数"] ?? row["视频次数"] ?? row["录制视频数"]),
-      messageCount: toNonNegativeInteger(row["学生消息数"] ?? row["消息数"] ?? row["消息数量"] ?? row["学生消息数量"])
+      studentName: String(getRowValue(row, ["学生姓名", "学员姓名", "姓名"]) ?? "").trim(),
+      score: String(getRowValue(row, ["成绩", "等级", "录取成绩"]) ?? "").trim(),
+      overallScore:
+        String(getRowValue(row, ["综合得分", "分数", "得分", "综合分数", "总分"]) ?? "").trim() || null,
+      teacherName: String(getRowValue(row, ["老师姓名", "老师", "教师姓名", "负责老师"]) ?? "未分配老师").trim() || "未分配老师",
+      programType: normalizeProgramType(
+        String(getRowValue(row, ["班级类型", "班型", "录取班级", "班级", "项目类型"]) ?? "")
+      ),
+      homeworkLessonCount: toNonNegativeInteger(
+        getRowValue(row, [
+          "提交作业课次数",
+          "提交作业次数",
+          "作业提交次数",
+          "作业次数",
+          "提交作业数",
+          "作业课次数",
+          "作业数量"
+        ])
+      ),
+      videoCount: toNonNegativeInteger(
+        getRowValue(row, ["录制视频次数", "视频录制次数", "录视频次数", "视频次数", "录制视频数", "视频数量"])
+      ),
+      messageCount: toNonNegativeInteger(
+        getRowValue(row, ["学生消息数", "消息条数", "互动消息数", "消息数", "消息数量", "学生消息数量"])
+      )
     }))
     .filter((row) => row.studentName && row.score);
 }
 
+function getRowValue(row: RecordRow, aliases: string[]) {
+  for (const alias of aliases) {
+    if (row[alias] !== undefined) return row[alias];
+  }
+
+  const normalizedAliases = aliases.map(normalizeHeader);
+  const entry = Object.entries(row).find(([key]) => normalizedAliases.includes(normalizeHeader(key)));
+  return entry?.[1];
+}
+
+function normalizeHeader(value: string) {
+  return value
+    .replace(/[（(].*?[）)]/gu, "")
+    .replace(/\s+/gu, "")
+    .replace(/[^\p{L}\p{N}%+]/gu, "")
+    .toLowerCase();
+}
+
 function toNonNegativeInteger(value: unknown) {
-  const numeric = Number(String(value ?? "").trim());
+  const match = String(value ?? "")
+    .trim()
+    .match(/\d+(?:\.\d+)?/);
+  const numeric = match ? Number(match[0]) : 0;
   return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : 0;
 }
 
