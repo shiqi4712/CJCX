@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { AdmissionResult, type QueryResult } from "@/components/AdmissionResult";
 
 const REVIEW_MESSAGE = "教学中心成绩审核进行中，请您耐心等待";
-const MIN_REVIEW_LOADING_MS = 4000;
+const REQUEST_TIMEOUT_MS = 12000;
 
 export function ResultLookup() {
   const searchParams = useSearchParams();
@@ -22,30 +22,24 @@ export function ResultLookup() {
     }
 
     let cancelled = false;
-    let settled = false;
-    const reviewTimer = window.setTimeout(() => {
-      if (cancelled || settled) return;
-      settled = true;
-      setResult(null);
-      setLoading(false);
-      setMessage(REVIEW_MESSAGE);
-    }, MIN_REVIEW_LOADING_MS);
+    const controller = new AbortController();
+    const requestTimer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     async function fetchResult() {
       setLoading(true);
       setMessage("正在查询...");
-      const startedAt = Date.now();
 
       const response = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentName })
+        body: JSON.stringify({ studentName }),
+        signal: controller.signal
       }).catch(() => null);
 
+      window.clearTimeout(requestTimer);
+      if (cancelled) return;
+
       if (!response) {
-        if (cancelled || settled) return;
-        settled = true;
-        window.clearTimeout(reviewTimer);
         setResult(null);
         setLoading(false);
         setMessage("查询暂时失败，请稍后重试");
@@ -53,19 +47,7 @@ export function ResultLookup() {
       }
 
       const data = await response.json().catch(() => ({}));
-
-      if (cancelled || settled) return;
-
-      if (response.status === 423) {
-        const remainingMs = Math.max(0, MIN_REVIEW_LOADING_MS - (Date.now() - startedAt));
-        if (remainingMs > 0) {
-          await new Promise((resolve) => window.setTimeout(resolve, remainingMs));
-        }
-        if (cancelled) return;
-      }
-
-      settled = true;
-      window.clearTimeout(reviewTimer);
+      if (cancelled) return;
       setLoading(false);
       if (!response.ok) {
         setResult(null);
@@ -81,7 +63,8 @@ export function ResultLookup() {
 
     return () => {
       cancelled = true;
-      window.clearTimeout(reviewTimer);
+      controller.abort();
+      window.clearTimeout(requestTimer);
     };
   }, [studentName]);
 

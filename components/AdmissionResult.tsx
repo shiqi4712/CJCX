@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { COURSE_DAYS, COURSE_SLOTS } from "@/lib/course-times";
 import {
-  getProgramAdmissionDetail,
   getProgramDisplayName,
   getProgramIntro,
   getProgramLearningGoal,
@@ -107,15 +106,6 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
   const certificateTitle = `${programName}录取通知书`;
   const abilityScores = buildAbilityScores(result);
   const radarPoints = buildRadarPoints(abilityScores);
-  const archiveRows = [
-    { label: "学生姓名", value: result.studentName, tone: "strong" },
-    { label: "综合成绩", value: result.score, tone: "strong" },
-    { label: "综合得分", value: result.overallScore || "未填写" },
-    { label: "录取结果", value: programName, tone: "strong" },
-    { label: "录取详情", value: getProgramAdmissionDetail(programType), wide: true },
-    { label: "孩子成长目标", value: getProgramLearningGoal(programType), wide: true },
-    { label: "班级介绍", value: getProgramIntro(programType), wide: true }
-  ];
   const savedCourseTime = splitCourseTime(result.preferredCourseTime);
   const [selectedDay, setSelectedDay] = useState(savedCourseTime.day);
   const [selectedSlot, setSelectedSlot] = useState(savedCourseTime.slot);
@@ -175,10 +165,8 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
           <div className="invitation-body">
             {admitted ? (
               <>
-                <p className="letter-kicker">恭喜</p>
-                <strong className="letter-student">{result.studentName}</strong>
+                <p className="letter-student-line">恭喜 <strong>{result.studentName}</strong> 同学</p>
                 <p className="letter-status">已获得{programName}录取资格</p>
-                <p className="letter-note">{getProgramWelcomeNote()}</p>
               </>
             ) : (
               <>
@@ -192,34 +180,22 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
 
         {admitted ? (
           <>
-            <section className="admission-archive" aria-label="录取档案">
-              <div className="archive-head">
-                <div>
-                  <h3>录取档案</h3>
-                  <p>展示成绩、录取详情与后续学习目标</p>
-                </div>
-                <span />
+            <section className="result-summary" aria-label="录取成绩">
+              <div className="summary-item">
+                <strong>{result.overallScore || "--"}</strong>
+                <span>综合得分</span>
               </div>
-
-              <div className="archive-grid">
-                {archiveRows.map((row) => (
-                  <div key={row.label} className={`archive-row ${row.wide ? "wide" : ""}`}>
-                    <span>{row.label}</span>
-                    <p className={row.tone === "strong" ? "strong" : ""}>{row.value}</p>
-                  </div>
-                ))}
+              <div className="summary-item">
+                <strong>{result.score}</strong>
+                <span>综合等级</span>
+              </div>
+              <div className="summary-item">
+                <strong>前10%</strong>
+                <span>能力档位</span>
               </div>
             </section>
 
             <section className="ability-card" aria-label="五维能力评估">
-              <div className="ability-head">
-                <div>
-                  <h3>五维能力评估</h3>
-                  <p>{ABILITY_COPY}</p>
-                </div>
-                <span>10分制</span>
-              </div>
-
               <div className="ability-body">
                 <svg className="ability-radar" viewBox="0 0 148 132" role="img" aria-label="五维能力图">
                   <polygon className="ability-grid" points="74,10 132,51 110,118 38,118 16,51" />
@@ -252,21 +228,26 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
                   </text>
                 </svg>
 
-                <div className="ability-list">
-                  {abilityScores.map((score) => (
-                    <div className="ability-item" key={score.label}>
-                      <span>{score.label}</span>
-                      <strong>{score.value.toFixed(2)}</strong>
-                    </div>
-                  ))}
+                <div className="ability-copy">
+                  <h3>五维能力表现突出</h3>
+                  <p>{ABILITY_COPY}，适合进入进阶课程继续培养。</p>
                 </div>
               </div>
             </section>
 
+            <section className="result-detail-card">
+              <h3>孩子成长目标</h3>
+              <p>{getProgramLearningGoal(programType)}</p>
+            </section>
+
+            <section className="result-detail-card">
+              <h3>班级介绍</h3>
+              <p>{getProgramIntro(programType)}</p>
+            </section>
+
             <section className="course-time-card" aria-label="选择上课时间">
               <div className="course-time-head">
-                <h3>选择上课安排</h3>
-                <p>请选择日期和时段，确认后老师会优先核对。</p>
+                <h3>选择上课时间</h3>
               </div>
 
               <div className="course-picker-group">
@@ -312,6 +293,7 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
         ) : null}
 
         <footer className="certificate-footer">
+          <p>{getProgramWelcomeNote()}</p>
           <span>{result.queryDate}</span>
         </footer>
       </div>
