@@ -161,8 +161,6 @@ function Dashboard({
   const [status, setStatus] = useState("");
   const studentImportRef = useRef<HTMLInputElement>(null);
   const teacherImportRef = useRef<HTMLInputElement>(null);
-  const templateRef = useRef<HTMLInputElement>(null);
-  const planStudentsRef = useRef<HTMLInputElement>(null);
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
   const [studentSearch, setStudentSearch] = useState("");
   const [studentPage, setStudentPage] = useState(1);
@@ -391,48 +389,6 @@ function Dashboard({
     window.location.reload();
   }
 
-  async function exportPlans() {
-    const studentsFile = planStudentsRef.current?.files?.[0];
-    if (!studentsFile) {
-      setStatus("请先上传学生信息表");
-      return;
-    }
-
-    const template = templateRef.current?.files?.[0];
-    const maxFileSize = 10 * 1024 * 1024;
-    if (studentsFile.size > maxFileSize || (template && template.size > maxFileSize)) {
-      setStatus("单个文件不能超过 10MB");
-      return;
-    }
-
-    const formData = new FormData();
-    if (template) formData.append("template", template);
-    formData.append("students", studentsFile);
-
-    setStatus("正在生成个性化学习方案...");
-    const response = await fetch("/api/teacher/course-plans/export", { method: "POST", body: formData });
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setStatus(
-        data.message ??
-          (response.status === 413 ? "上传文件过大，请压缩文件后重试或联系管理员调整上传限制" : "生成失败")
-      );
-      return;
-    }
-
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "个性化学习方案批量导出.zip";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    setStatus("已生成并下载个性化学习方案压缩包");
-  }
-
   function exportQueryStatus() {
     const headers = [
       "学生姓名",
@@ -559,22 +515,6 @@ function Dashboard({
             </button>
           </section>
         </div>
-      ) : null}
-
-      {isAdmin ? (
-        <section className="tool-panel wide">
-          <h3>个性化学习方案</h3>
-          <p>上传课程方案 `.docx` 和学生信息表（.xlsx/.csv），系统替换学生姓名与成绩后批量导出。</p>
-          <div className="file-row">
-            <span>课程方案模板</span>
-            <input ref={templateRef} type="file" accept=".doc,.docx" />
-          </div>
-          <div className="file-row">
-            <span>学生信息表</span>
-            <input ref={planStudentsRef} type="file" accept=".xlsx,.csv" />
-          </div>
-          <button onClick={exportPlans}>生成并批量导出</button>
-        </section>
       ) : null}
 
       <section className="tool-panel wide">
