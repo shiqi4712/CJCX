@@ -5,6 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdmissionResult, type QueryResult } from "@/components/AdmissionResult";
 
+const REVIEW_MESSAGE = "教学中心成绩审核进行中，请您耐心等待";
+const MIN_REVIEW_LOADING_MS = 4000;
+
 export function ResultLookup() {
   const searchParams = useSearchParams();
   const studentName = searchParams.get("name")?.trim() ?? "";
@@ -23,6 +26,7 @@ export function ResultLookup() {
     async function fetchResult() {
       setLoading(true);
       setMessage("正在查询...");
+      const startedAt = Date.now();
 
       const response = await fetch("/api/query", {
         method: "POST",
@@ -33,10 +37,18 @@ export function ResultLookup() {
 
       if (cancelled) return;
 
+      if (response.status === 423) {
+        const remainingMs = Math.max(0, MIN_REVIEW_LOADING_MS - (Date.now() - startedAt));
+        if (remainingMs > 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, remainingMs));
+        }
+        if (cancelled) return;
+      }
+
       setLoading(false);
       if (!response.ok) {
         setResult(null);
-        setMessage(data.message ?? "未查询到相关结果");
+        setMessage(response.status === 423 ? REVIEW_MESSAGE : data.message ?? "未查询到相关结果");
         return;
       }
 

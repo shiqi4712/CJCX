@@ -3,7 +3,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { isResultQueryOpen, queryStudentByName, recordPendingReviewQuery } from "@/lib/store";
 import { cleanName } from "@/lib/validation";
 
-const QUERY_NOT_OPEN_MESSAGE = "成绩正在经教学中心审核中 请您耐心等待";
+const QUERY_NOT_OPEN_MESSAGE = "教学中心成绩审核进行中，请您耐心等待";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { studentName?: string } | null;
