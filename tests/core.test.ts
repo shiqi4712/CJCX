@@ -63,7 +63,11 @@ function assertScoreInRange(value: string | null | undefined, min: number, max: 
 test("CSV import supports quoted fields, teacher assignment and program type", async () => {
   const csv = new File(
     [
-      ["学生姓名,成绩,老师姓名,班级类型", '"张小明",A,王老师,育才班', '"李小明",A+,李老师,特训营'].join("\n")
+      [
+        "学生姓名,成绩,老师姓名,班级类型,提交作业课次数,录制视频次数,学生消息数",
+        '"张小明",A,王老师,育才班,3,1,45',
+        '"李小明",A+,李老师,特训营,0,2,8'
+      ].join("\n")
     ],
     "students.csv",
     {
@@ -72,8 +76,26 @@ test("CSV import supports quoted fields, teacher assignment and program type", a
   );
   const rows = toStudentRows(await parseSheetFile(csv));
   assert.deepEqual(rows, [
-    { studentName: "张小明", score: "A", overallScore: null, teacherName: "王老师", programType: "育才班" },
-    { studentName: "李小明", score: "A+", overallScore: null, teacherName: "李老师", programType: "科特特训营" }
+    {
+      studentName: "张小明",
+      score: "A",
+      overallScore: null,
+      teacherName: "王老师",
+      programType: "育才班",
+      homeworkLessonCount: 3,
+      videoCount: 1,
+      messageCount: 45
+    },
+    {
+      studentName: "李小明",
+      score: "A+",
+      overallScore: null,
+      teacherName: "李老师",
+      programType: "科特特训营",
+      homeworkLessonCount: 0,
+      videoCount: 2,
+      messageCount: 8
+    }
   ]);
 });
 
@@ -95,6 +117,9 @@ test("duplicate imports update records and teachers only see assigned students",
   const teacherOverview = await getOverview("teacher", "王老师");
   assert.equal(teacherOverview.students.length, 1);
   assert.equal(teacherOverview.students[0].score, "A+");
+  assert.equal(teacherOverview.students[0].homeworkLessonCount, 0);
+  assert.equal(teacherOverview.students[0].videoCount, 0);
+  assert.equal(teacherOverview.students[0].messageCount, 0);
   assertScoreInRange(teacherOverview.students[0].overallScore, 97, 99);
   assert.equal((await getOverview("teacher", "李老师")).students.length, 1);
   assert.equal(await login("王老师", "abc123").then(Boolean), true);

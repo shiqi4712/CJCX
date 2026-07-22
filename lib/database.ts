@@ -145,6 +145,9 @@ async function initializePostgresSchema(sql: SqlClient) {
       query_count integer NOT NULL DEFAULT 0,
       last_query timestamptz,
       preferred_course_time varchar(80),
+      homework_lesson_count integer NOT NULL DEFAULT 0,
+      video_count integer NOT NULL DEFAULT 0,
+      message_count integer NOT NULL DEFAULT 0,
       published boolean NOT NULL DEFAULT true,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
@@ -155,6 +158,9 @@ async function initializePostgresSchema(sql: SqlClient) {
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS preferred_course_time varchar(80)");
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS program_type varchar(20) NOT NULL DEFAULT '英才特训营'");
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS overall_score varchar(30)");
+  await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS homework_lesson_count integer NOT NULL DEFAULT 0");
+  await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS video_count integer NOT NULL DEFAULT 0");
+  await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS message_count integer NOT NULL DEFAULT 0");
 
   await sql.query(`
     CREATE TABLE IF NOT EXISTS system_settings (
@@ -219,6 +225,9 @@ async function initializeMySqlSchema(sql: SqlClient) {
       query_count int NOT NULL DEFAULT 0,
       last_query timestamp(3) NULL,
       preferred_course_time varchar(80),
+      homework_lesson_count int NOT NULL DEFAULT 0,
+      video_count int NOT NULL DEFAULT 0,
+      message_count int NOT NULL DEFAULT 0,
       published boolean NOT NULL DEFAULT true,
       created_at timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
       updated_at timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -231,6 +240,9 @@ async function initializeMySqlSchema(sql: SqlClient) {
   await addMySqlColumnIfMissing(sql, "students", "preferred_course_time", "varchar(80)");
   await addMySqlColumnIfMissing(sql, "students", "program_type", "varchar(20) NOT NULL DEFAULT '英才特训营'");
   await addMySqlColumnIfMissing(sql, "students", "overall_score", "varchar(30)");
+  await addMySqlColumnIfMissing(sql, "students", "homework_lesson_count", "int NOT NULL DEFAULT 0");
+  await addMySqlColumnIfMissing(sql, "students", "video_count", "int NOT NULL DEFAULT 0");
+  await addMySqlColumnIfMissing(sql, "students", "message_count", "int NOT NULL DEFAULT 0");
 
   await sql.query(`
     CREATE TABLE IF NOT EXISTS system_settings (

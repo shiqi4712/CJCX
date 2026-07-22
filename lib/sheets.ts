@@ -171,9 +171,17 @@ export function toStudentRows(rows: RecordRow[]): SheetStudentRow[] {
       score: String(row["成绩"] ?? "").trim(),
       overallScore: String(row["综合得分"] ?? row["分数"] ?? row["得分"] ?? row["综合分数"] ?? row["总分"] ?? "").trim() || null,
       teacherName: String(row["老师姓名"] ?? "未分配老师").trim() || "未分配老师",
-      programType: normalizeProgramType(String(row["班级类型"] ?? row["班型"] ?? row["录取班级"] ?? row["班级"] ?? ""))
+      programType: normalizeProgramType(String(row["班级类型"] ?? row["班型"] ?? row["录取班级"] ?? row["班级"] ?? "")),
+      homeworkLessonCount: toNonNegativeInteger(row["提交作业课次数"] ?? row["提交作业数"] ?? row["作业课次数"] ?? row["作业数量"]),
+      videoCount: toNonNegativeInteger(row["录制视频次数"] ?? row["视频次数"] ?? row["录制视频数"]),
+      messageCount: toNonNegativeInteger(row["学生消息数"] ?? row["消息数"] ?? row["消息数量"] ?? row["学生消息数量"])
     }))
     .filter((row) => row.studentName && row.score);
+}
+
+function toNonNegativeInteger(value: unknown) {
+  const numeric = Number(String(value ?? "").trim());
+  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : 0;
 }
 
 export function toTeacherRows(rows: RecordRow[]): SheetTeacherRow[] {

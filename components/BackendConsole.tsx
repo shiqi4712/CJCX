@@ -24,6 +24,9 @@ type Overview = {
     queryCount: number;
     lastQuery: string | null;
     preferredCourseTime: string | null;
+    homeworkLessonCount: number;
+    videoCount: number;
+    messageCount: number;
     published: boolean;
   }>;
   teachers: Array<{
@@ -429,6 +432,9 @@ function Dashboard({
       "查询次数",
       "最近查询",
       "上课时间",
+      "提交作业课次数",
+      "录制视频次数",
+      "学生消息数",
       "录取结果"
     ];
     const rows = studentRows.map((student) => [
@@ -441,6 +447,9 @@ function Dashboard({
       String(student.queryCount),
       formatDateTime(student.lastQuery),
       student.preferredCourseTime ?? "",
+      String(student.homeworkLessonCount),
+      String(student.videoCount),
+      String(student.messageCount),
       student.admission
     ]);
     const csv = [headers, ...rows].map((row) => row.map(toCsvCell).join(",")).join("\r\n");
@@ -521,7 +530,7 @@ function Dashboard({
           <section className="tool-panel">
             <h3>学生成绩信息</h3>
             <p>
-              支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、班级类型。综合得分由系统自动生成；班级类型可填：英才特训营、科特班、育才班、特训营。
+              支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、班级类型、提交作业课次数、录制视频次数、学生消息数。综合得分由系统自动生成；班级类型可填：英才特训营、科特班、育才班、特训营。
             </p>
             <input ref={studentImportRef} type="file" accept=".xlsx,.csv" />
             <button onClick={() => uploadFile("/api/admin/students/import", studentImportRef.current, "学生成绩")}>
@@ -731,6 +740,9 @@ function Dashboard({
                 <th>班级类型</th>
                 <th>老师</th>
                 <th>上课时间</th>
+                <th>作业</th>
+                <th>视频</th>
+                <th>消息</th>
                 <th>录取结果</th>
                 <th>查询状态</th>
                 <th>最近查询</th>
@@ -746,6 +758,9 @@ function Dashboard({
                   <td>{student.programType}</td>
                   <td>{student.teacherName}</td>
                   <td>{student.preferredCourseTime ?? "-"}</td>
+                  <td>{student.homeworkLessonCount}</td>
+                  <td>{student.videoCount}</td>
+                  <td>{student.messageCount}</td>
                   <td>{student.admission}</td>
                   <td className={student.queried ? "done" : "pending"}>
                     {student.queried ? `已查询 ${student.queryCount} 次` : "未查询"}
@@ -800,7 +815,7 @@ function Dashboard({
               ))}
               {visibleStudentRows.length === 0 ? (
                 <tr>
-                  <td colSpan={10}>没有匹配的学生</td>
+                  <td colSpan={13}>没有匹配的学生</td>
                 </tr>
               ) : null}
             </tbody>

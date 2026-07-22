@@ -47,6 +47,9 @@ export async function POST(request: Request) {
     admissionDetail: student.detail,
     advice: student.advice,
     preferredCourseTime: student.preferredCourseTime,
+    homeworkLessonCount: student.homeworkLessonCount,
+    videoCount: student.videoCount,
+    messageCount: student.messageCount,
     queryDate: new Date().toLocaleDateString("zh-CN", {
       year: "numeric",
       month: "long",

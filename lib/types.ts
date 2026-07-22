@@ -17,6 +17,9 @@ export type Student = {
   queryCount: number;
   lastQuery: string | null;
   preferredCourseTime: string | null;
+  homeworkLessonCount: number;
+  videoCount: number;
+  messageCount: number;
   published: boolean;
   createdAt: string;
   updatedAt: string;
@@ -53,6 +56,9 @@ export type SheetStudentRow = {
   overallScore?: string | null;
   teacherName: string;
   programType?: ProgramType;
+  homeworkLessonCount?: number;
+  videoCount?: number;
+  messageCount?: number;
 };
 
 export type SheetTeacherRow = {

@@ -22,6 +22,9 @@ export type QueryResult = {
   admissionDetail: string;
   advice: string;
   preferredCourseTime: string | null;
+  homeworkLessonCount?: number;
+  videoCount?: number;
+  messageCount?: number;
   queryDate: string;
 };
 
@@ -30,7 +33,6 @@ type AbilityScore = {
   value: number;
 };
 
-const ABILITY_LABELS = ["逻辑思维", "空间想象", "专注表达", "创新应用", "学习潜力"] as const;
 const ABILITY_COPY = "根据孩子本次课程表现，作品情况，课程互动等进行综合评估";
 const RADAR_ORDER = [0, 3, 2, 1, 4] as const;
 
@@ -54,12 +56,26 @@ function hashText(value: string) {
 }
 
 function buildAbilityScores(result: QueryResult): AbilityScore[] {
-  const seed = `${result.studentId}:${result.studentName}`;
-  return ABILITY_LABELS.map((label, index) => {
-    const hash = hashText(`${seed}:${label}:${index}`);
-    const cents = 900 + (hash % 91);
-    return { label, value: cents / 100 };
-  });
+  const homeworkBonus = (result.homeworkLessonCount ?? 0) * 0.3;
+  const videoBonus = (result.videoCount ?? 0) * 0.2;
+  const messageBonus = getMessageBonus(result.messageCount ?? 0);
+  const spatialBonus = (hashText(`${result.studentId}:${result.studentName}:space`) % 31) / 100;
+  const cap = (value: number) => Math.min(9.9, value);
+
+  return [
+    { label: "逻辑思维", value: cap(9 + homeworkBonus) },
+    { label: "空间想象", value: cap(9 + spatialBonus) },
+    { label: "专注表达", value: cap(9 + videoBonus + messageBonus) },
+    { label: "创新应用", value: cap(9 + homeworkBonus) },
+    { label: "学习潜力", value: cap(9 + messageBonus) }
+  ];
+}
+
+function getMessageBonus(messageCount: number) {
+  if (messageCount > 60) return 0.9;
+  if (messageCount > 30) return 0.6;
+  if (messageCount > 10) return 0.3;
+  return 0.1;
 }
 
 function buildRadarPoints(scores: AbilityScore[]) {
