@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { isResultQueryOpen, queryStudentByName, recordPendingReviewQuery } from "@/lib/store";
+import { getQueryReleaseState, queryStudentByName, recordPendingReviewQuery } from "@/lib/store";
 import { cleanName } from "@/lib/validation";
 
 const QUERY_NOT_OPEN_MESSAGE = "教学中心成绩审核进行中，请您耐心等待";
@@ -21,35 +21,45 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!(await isResultQueryOpen())) {
+  const releaseState = await getQueryReleaseState();
+  const diagnosticHeaders = {
+    "X-Query-Open": String(releaseState.open),
+    "X-Result-Open-At": releaseState.resultOpenAt ?? "",
+    "X-Server-Now": releaseState.serverNow
+  };
+
+  if (!releaseState.open) {
     await recordPendingReviewQuery(studentName);
-    return NextResponse.json({ message: QUERY_NOT_OPEN_MESSAGE }, { status: 423 });
+    return NextResponse.json({ message: QUERY_NOT_OPEN_MESSAGE }, { status: 423, headers: diagnosticHeaders });
   }
 
   const student = await queryStudentByName(studentName);
 
   if (!student) {
-    return NextResponse.json({ message: "未查询到相关结果" }, { status: 404 });
+    return NextResponse.json({ message: "未查询到相关结果" }, { status: 404, headers: diagnosticHeaders });
   }
 
-  return NextResponse.json({
-    studentId: student.id,
-    studentName: student.studentName,
-    score: student.score,
-    overallScore: student.overallScore,
-    programType: student.programType,
-    admissionResult: student.admission,
-    recommendedClass: student.className,
-    admissionDetail: student.detail,
-    advice: student.advice,
-    preferredCourseTime: student.preferredCourseTime,
-    homeworkLessonCount: student.homeworkLessonCount,
-    videoCount: student.videoCount,
-    messageCount: student.messageCount,
-    queryDate: new Date().toLocaleDateString("zh-CN", {
-      year: "numeric",
-      month: "long",
-      day: "numeric"
-    })
-  });
+  return NextResponse.json(
+    {
+      studentId: student.id,
+      studentName: student.studentName,
+      score: student.score,
+      overallScore: student.overallScore,
+      programType: student.programType,
+      admissionResult: student.admission,
+      recommendedClass: student.className,
+      admissionDetail: student.detail,
+      advice: student.advice,
+      preferredCourseTime: student.preferredCourseTime,
+      homeworkLessonCount: student.homeworkLessonCount,
+      videoCount: student.videoCount,
+      messageCount: student.messageCount,
+      queryDate: new Date().toLocaleDateString("zh-CN", {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      })
+    },
+    { headers: diagnosticHeaders }
+  );
 }

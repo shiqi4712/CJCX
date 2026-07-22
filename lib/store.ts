@@ -13,7 +13,11 @@ import type {
   TeacherAccount
 } from "./types";
 
-const normalizeName = (value: string) => value.trim().replace(/\s+/g, "").toLowerCase();
+const normalizeName = (value: string) =>
+  value
+    .normalize("NFKC")
+    .replace(/[\s\u200B-\u200D\uFEFF]+/g, "")
+    .toLowerCase();
 const nowText = () => new Date().toISOString();
 
 function generateOverallScore(admissionStatus: string) {
@@ -117,8 +121,17 @@ export async function updateQueryReleaseSettings(input: QueryReleaseSettings) {
 }
 
 export async function isResultQueryOpen() {
+  return (await getQueryReleaseState()).open;
+}
+
+export async function getQueryReleaseState() {
   const settings = await getQueryReleaseSettings();
-  return !settings.resultOpenAt || Date.now() >= new Date(settings.resultOpenAt).getTime();
+  const serverNow = new Date();
+  return {
+    open: !settings.resultOpenAt || serverNow.getTime() >= new Date(settings.resultOpenAt).getTime(),
+    resultOpenAt: settings.resultOpenAt,
+    serverNow: serverNow.toISOString()
+  };
 }
 
 async function ensureReady() {
@@ -209,9 +222,9 @@ export async function recordPendingReviewQuery(studentName: string) {
   const sql = getSql();
   const rows = (await sql.query(
     `SELECT id, student_name, teacher_name FROM students
-     WHERE normalized_name = $1 AND published = true
+     WHERE (normalized_name = $1 OR student_name = $2) AND published = true
      ORDER BY created_at ASC, id ASC LIMIT 1`,
-    [normalized]
+    [normalized, studentName.trim()]
   )) as unknown as Record<string, unknown>[];
   const row = rows[0];
   await sql.query(
@@ -254,9 +267,9 @@ export async function queryStudentByName(studentName: string) {
   const sql = getSql();
   const rows = (await sql.query(
     `SELECT * FROM students
-     WHERE normalized_name = $1 AND published = true
+     WHERE (normalized_name = $1 OR student_name = $2) AND published = true
      ORDER BY created_at ASC, id ASC LIMIT 1`,
-    [normalized]
+    [normalized, studentName.trim()]
   )) as unknown as Record<string, unknown>[];
   const row = rows[0];
   const logId = randomUUID();
