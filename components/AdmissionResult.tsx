@@ -9,6 +9,7 @@ import {
   getProgramWelcomeNote,
   normalizeProgramType
 } from "@/lib/programs";
+import { buildPerformanceRatings as buildPerformanceRatingsFromCounts } from "@/lib/performance-ratings";
 import { getAbilityRankByOverallScore } from "@/lib/result-scoring";
 
 export type QueryResult = {
@@ -121,7 +122,7 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
   const abilityRank =
     getAbilityRankByOverallScore(result.overallScore) ??
     2 + (hashText(`${result.studentId}:${result.studentName}:ability-rank`) % 9);
-  const performanceRatings = buildPerformanceRatings(result);
+  const performanceRatings = buildPerformanceRatingsFromCounts(result);
   const savedCourseTime = splitCourseTime(result.preferredCourseTime);
   const [selectedDay, setSelectedDay] = useState(savedCourseTime.day);
   const [selectedSlot, setSelectedSlot] = useState(savedCourseTime.slot);

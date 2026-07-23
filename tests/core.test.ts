@@ -4,6 +4,7 @@ import JSZip from "jszip";
 import { decodeSession, encodeSession } from "../lib/auth";
 import { buildCoursePlanZip } from "../lib/documents";
 import { hashPassword, verifyPassword } from "../lib/passwords";
+import { buildPerformanceRatings } from "../lib/performance-ratings";
 import {
   getProgramDisplayName,
   getProgramIntro,
@@ -66,6 +67,24 @@ test("ability rank follows the overall score", () => {
   assert.equal(getAbilityRankByOverallScore("98.62"), 4);
   assert.equal(getAbilityRankByOverallScore("99.00"), 2);
   assert.equal(getAbilityRankByOverallScore(null), null);
+});
+
+test("performance ratings follow imported homework and video counts", () => {
+  assert.deepEqual(buildPerformanceRatings({ homeworkLessonCount: 0, videoCount: 0 }), [
+    { label: "上课表现", value: 4 },
+    { label: "作业提交", value: 3 },
+    { label: "视频打卡", value: 3 }
+  ]);
+  assert.deepEqual(buildPerformanceRatings({ homeworkLessonCount: 2, videoCount: 2 }), [
+    { label: "上课表现", value: 4 },
+    { label: "作业提交", value: 4 },
+    { label: "视频打卡", value: 4 }
+  ]);
+  assert.deepEqual(buildPerformanceRatings({ homeworkLessonCount: 3, videoCount: 3 }), [
+    { label: "上课表现", value: 4 },
+    { label: "作业提交", value: 5 },
+    { label: "视频打卡", value: 5 }
+  ]);
 });
 
 test("CSV import supports quoted fields, teacher assignment and program type", async () => {
