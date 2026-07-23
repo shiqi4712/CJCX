@@ -90,7 +90,7 @@ test("CSV import supports quoted fields, teacher assignment and program type", a
       score: "A+",
       overallScore: null,
       teacherName: "李老师",
-      programType: "科特特训营",
+      programType: "特训营",
       homeworkLessonCount: 0,
       videoCount: 2,
       messageCount: 8
@@ -157,17 +157,19 @@ test("duplicate imports update records and teachers only see assigned students",
 
 test("student program type controls admitted class display", async () => {
   await importStudents([
-    { studentName: "英才学生", score: "A+", teacherName: "未分配老师", programType: "英才特训营" },
+    { studentName: "英才学生", score: "A+", teacherName: "未分配老师", programType: "英才班" },
     { studentName: "科特学生", score: "A+", teacherName: "未分配老师", programType: "科特班" },
     { studentName: "育才学生", score: "A+", teacherName: "未分配老师", programType: "育才班" },
-    { studentName: "特训学生", score: "A+", teacherName: "未分配老师", programType: "科特特训营" }
+    { studentName: "特训学生", score: "A+", teacherName: "未分配老师", programType: "特训营" }
   ]);
 
   const overview = await getOverview("admin");
-  assert.equal(overview.students.find((student) => student.studentName === "英才学生")?.className, "英才特训营");
+  assert.equal(overview.students.find((student) => student.studentName === "英才学生")?.programType, "英才特训营");
+  assert.equal(overview.students.find((student) => student.studentName === "英才学生")?.className, "英才班");
   assert.equal(overview.students.find((student) => student.studentName === "科特学生")?.className, "科特班");
   assert.equal(overview.students.find((student) => student.studentName === "育才学生")?.className, "育才班");
-  assert.equal(overview.students.find((student) => student.studentName === "特训学生")?.className, "科特特训营");
+  assert.equal(overview.students.find((student) => student.studentName === "特训学生")?.programType, "科特特训营");
+  assert.equal(overview.students.find((student) => student.studentName === "特训学生")?.className, "特训营");
 });
 
 test("special training program uses parent-facing display copy", () => {

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
-import { normalizeProgramType } from "@/lib/programs";
 import { deleteStudent, updateStudent } from "@/lib/store";
 import { cleanName, cleanScore, isUuid } from "@/lib/validation";
 
@@ -18,7 +17,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     ...(body.score !== undefined ? { score: cleanScore(body.score) } : {}),
     ...(body.overallScore !== undefined ? { overallScore: cleanScore(body.overallScore) || null } : {}),
     ...(body.teacherName !== undefined ? { teacherName: cleanName(body.teacherName) || "未分配老师" } : {}),
-    ...(body.programType !== undefined ? { programType: normalizeProgramType(String(body.programType)) } : {}),
+    ...(body.programType !== undefined ? { programType: String(body.programType).trim() } : {}),
     ...(typeof body.published === "boolean" ? { published: body.published } : {})
   };
   if ("studentName" in input && !input.studentName) {

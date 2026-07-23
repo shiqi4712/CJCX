@@ -32,6 +32,7 @@ export async function POST(request: Request) {
       studentName,
       score,
       teacherName,
+      programType: String(body.programType ?? "").trim() || undefined,
       homeworkLessonCount: toNonNegativeInteger(body.homeworkLessonCount),
       videoCount: toNonNegativeInteger(body.videoCount),
       messageCount: toNonNegativeInteger(body.messageCount)

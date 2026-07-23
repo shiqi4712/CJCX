@@ -1,6 +1,5 @@
 import { DOMParser, type Element as XmlElement } from "@xmldom/xmldom";
 import JSZip from "jszip";
-import { normalizeProgramType } from "./programs";
 import type { SheetStudentRow, SheetTeacherRow } from "./types";
 
 type RecordRow = Record<string, unknown>;
@@ -172,9 +171,9 @@ export function toStudentRows(rows: RecordRow[]): SheetStudentRow[] {
       overallScore:
         String(getRowValue(row, ["综合得分", "分数", "得分", "综合分数", "总分"]) ?? "").trim() || null,
       teacherName: String(getRowValue(row, ["老师姓名", "老师", "教师姓名", "负责老师"]) ?? "未分配老师").trim() || "未分配老师",
-      programType: normalizeProgramType(
-        String(getRowValue(row, ["班级类型", "班型", "录取班级", "班级", "项目类型"]) ?? "")
-      ),
+      programType:
+        String(getRowValue(row, ["班级类型", "班型", "录取班级", "班级", "项目类型"]) ?? "").trim() ||
+        undefined,
       homeworkLessonCount: toNonNegativeInteger(
         getRowValue(row, [
           "提交作业课次数",

@@ -102,7 +102,7 @@ function buildRadarPoints(scores: AbilityScore[]) {
 export function AdmissionResult({ result }: { result: QueryResult }) {
   const admitted = result.admissionResult === "已录取";
   const programType = normalizeProgramType(result.programType ?? result.recommendedClass);
-  const programName = getProgramDisplayName(programType);
+  const programName = result.recommendedClass?.trim() || getProgramDisplayName(programType);
   const certificateTitle = `${programName}录取通知书`;
   const abilityScores = buildAbilityScores(result);
   const radarPoints = buildRadarPoints(abilityScores);

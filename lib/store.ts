@@ -28,8 +28,9 @@ function generateOverallScore(admissionStatus: string) {
   return (cents / 100).toFixed(2);
 }
 
-function buildAdmissionByScore(score: string, inputProgramType?: string | null) {
+function buildAdmissionByScore(score: string, inputProgramType?: string | null, importedClassName?: string | null) {
   const programType = normalizeProgramType(inputProgramType);
+  const className = String(importedClassName ?? inputProgramType ?? "").trim() || programType;
   const normalizedScore = score.trim().replace(/\s+/g, "").toUpperCase();
   if (!["S", "A", "A+", "前10%"].includes(normalizedScore)) {
     return {
@@ -44,7 +45,7 @@ function buildAdmissionByScore(score: string, inputProgramType?: string | null) 
   return {
     programType,
     admission: "已录取",
-    className: programType,
+    className,
     detail: getProgramAdmissionDetail(programType),
     advice: "期待你的加入，一起开启编程之旅！"
   };
@@ -173,7 +174,7 @@ function mapStudent(row: Record<string, unknown>): Student {
     overallScore: row.overall_score ? String(row.overall_score) : null,
     programType: normalizeProgramType(String(row.program_type ?? "")),
     admission: String(row.admission),
-    className: className === "继续努力" ? className : normalizeProgramType(className),
+    className,
     detail: String(row.detail),
     advice: String(row.advice),
     queried: Boolean(row.queried),
@@ -412,8 +413,9 @@ export async function importStudents(rows: SheetStudentRow[]) {
   let updatedCount = 0;
 
   for (const row of rows) {
-    const programType = normalizeProgramType(row.programType);
-    const admission = buildAdmissionByScore(row.score, programType);
+    const importedClassName = String(row.programType ?? "").trim();
+    const programType = normalizeProgramType(importedClassName);
+    const admission = buildAdmissionByScore(row.score, programType, importedClassName);
     const overallScore = generateOverallScore(admission.admission);
     const teacherName = row.teacherName && row.teacherName !== "未分配老师" ? row.teacherName : null;
     const homeworkLessonCount = row.homeworkLessonCount ?? 0;
@@ -665,12 +667,9 @@ export async function importTeachers(rows: SheetTeacherRow[]) {
 
 export async function updateStudent(
   id: string,
-  input: Partial<
-    Pick<
-      Student,
-      "studentName" | "score" | "overallScore" | "teacherName" | "programType" | "published" | "preferredCourseTime"
-    >
-  >
+  input: Partial<Pick<Student, "studentName" | "score" | "overallScore" | "teacherName" | "published" | "preferredCourseTime">> & {
+    programType?: string;
+  }
 ) {
   await ensureReady();
   const current = (await getOverview("admin")).students.find((student) => student.id === id);
@@ -679,13 +678,14 @@ export async function updateStudent(
   const studentName = input.studentName ?? current.studentName;
   const score = input.score ?? current.score;
   const teacherName = input.teacherName ?? current.teacherName;
-  const programType = normalizeProgramType(input.programType ?? current.programType);
+  const importedClassName = String(input.programType ?? current.className).trim();
+  const programType = normalizeProgramType(importedClassName);
   const published = input.published ?? current.published;
   const preferredCourseTime = input.preferredCourseTime ?? current.preferredCourseTime;
   const homeworkLessonCount = current.homeworkLessonCount;
   const videoCount = current.videoCount;
   const messageCount = current.messageCount;
-  const admission = buildAdmissionByScore(score, programType);
+  const admission = buildAdmissionByScore(score, programType, importedClassName);
   const overallScore = generateOverallScore(admission.admission);
 
   if (!hasDatabase()) {

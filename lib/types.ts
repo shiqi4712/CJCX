@@ -55,7 +55,7 @@ export type SheetStudentRow = {
   score: string;
   overallScore?: string | null;
   teacherName: string;
-  programType?: ProgramType;
+  programType?: string;
   homeworkLessonCount?: number;
   videoCount?: number;
   messageCount?: number;

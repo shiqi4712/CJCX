@@ -19,6 +19,7 @@ type Overview = {
     score: string;
     overallScore: string | null;
     programType: string;
+    className: string;
     admission: string;
     queried: boolean;
     queryCount: number;
@@ -166,6 +167,7 @@ function Dashboard({
   const [studentPage, setStudentPage] = useState(1);
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentScore, setNewStudentScore] = useState("");
+  const [newStudentProgramType, setNewStudentProgramType] = useState("");
   const [newStudentHomeworkLessonCount, setNewStudentHomeworkLessonCount] = useState("");
   const [newStudentVideoCount, setNewStudentVideoCount] = useState("");
   const [newStudentMessageCount, setNewStudentMessageCount] = useState("");
@@ -263,6 +265,7 @@ function Dashboard({
       body: JSON.stringify({
         studentName,
         score,
+        programType: newStudentProgramType,
         homeworkLessonCount: newStudentHomeworkLessonCount,
         videoCount: newStudentVideoCount,
         messageCount: newStudentMessageCount
@@ -276,6 +279,7 @@ function Dashboard({
 
     setNewStudentName("");
     setNewStudentScore("");
+    setNewStudentProgramType("");
     setNewStudentHomeworkLessonCount("");
     setNewStudentVideoCount("");
     setNewStudentMessageCount("");
@@ -409,7 +413,7 @@ function Dashboard({
       student.studentName,
       student.score,
       student.overallScore ?? "",
-      student.programType,
+      student.className,
       student.teacherName,
       student.queried ? "已查询" : "未查询",
       String(student.queryCount),
@@ -528,6 +532,14 @@ function Dashboard({
           <label>
             <span>学生成绩</span>
             <input value={newStudentScore} onChange={(event) => setNewStudentScore(event.target.value)} placeholder="如 A+ / A / B" />
+          </label>
+          <label>
+            <span>班型</span>
+            <input
+              value={newStudentProgramType}
+              onChange={(event) => setNewStudentProgramType(event.target.value)}
+              placeholder="如 英才班 / 特训营"
+            />
           </label>
           <label>
             <span>提交作业课次数</span>
@@ -740,7 +752,7 @@ function Dashboard({
                   <td>{student.studentName}</td>
                   <td>{student.score}</td>
                   <td>{student.overallScore ?? "-"}</td>
-                  <td>{student.programType}</td>
+                  <td>{student.className}</td>
                   <td>{student.teacherName}</td>
                   <td>{student.preferredCourseTime ?? "-"}</td>
                   <td>{student.homeworkLessonCount}</td>
@@ -761,7 +773,7 @@ function Dashboard({
                           if (!studentName) return;
                           const score = window.prompt("成绩", student.score);
                           if (!score) return;
-                          const programType = window.prompt("班级类型：英才特训营 / 科特班 / 育才班 / 特训营", student.programType);
+                          const programType = window.prompt("请输入成绩表中的班型名称", student.className);
                           if (!programType) return;
                           const teacherName = window.prompt("老师姓名", student.teacherName);
                           if (!teacherName) return;
