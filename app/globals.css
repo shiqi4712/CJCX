@@ -992,6 +992,10 @@ button {
   line-height: 1.2;
 }
 
+.summary-item.ability-rank strong {
+  color: #c90f1a;
+}
+
 .summary-item span {
   margin-top: 5px;
   color: #826568;
@@ -1013,7 +1017,7 @@ button {
 
 .ability-body {
   grid-template-columns: 148px minmax(0, 1fr);
-  gap: 10px;
+  gap: 16px;
   padding: 4px;
   border: 0;
   background: #fff;
@@ -1050,6 +1054,45 @@ button {
   color: #765e61;
   font-size: 12px;
   line-height: 1.65;
+}
+
+.performance-ratings {
+  display: grid;
+  gap: 11px;
+  margin-top: 11px;
+}
+
+.performance-rating {
+  display: grid;
+  gap: 4px;
+}
+
+.ability-copy {
+  min-width: 0;
+  padding-left: 8px;
+}
+
+.performance-rating > span {
+  color: #76584a;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.performance-rating strong {
+  display: flex;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.performance-rating i {
+  color: #e6d7bd;
+  font-size: 15px;
+  font-style: normal;
+  line-height: 1;
+}
+
+.performance-rating i.active {
+  color: #d20d18;
 }
 
 .result-detail-card {
@@ -1089,39 +1132,52 @@ button {
 /* Classic full-red parent theme. */
 .parent-shell {
   padding: 0;
-  background: #b70f12;
+  background: #a40d08;
+  box-shadow: 0 0 0 100vmax #a40d08;
 }
 
 .query-hero {
   min-height: 100vh;
-  padding: 24px 24px 34px;
+  padding: 0 24px 34px;
   border: 0;
   border-radius: 0;
   color: #fff;
   background:
-    linear-gradient(135deg, rgba(255, 214, 132, 0.16), transparent 34%),
-    radial-gradient(circle at 76% 8%, rgba(255, 195, 77, 0.24), transparent 28%),
-    linear-gradient(180deg, #e32222 0%, #b6080d 58%, #6f0709 100%);
+    linear-gradient(180deg, rgba(129, 4, 3, 0) 0%, rgba(129, 4, 3, 0.08) 45%, rgba(76, 2, 2, 0.28) 100%),
+    url("/images/parent-query-background.png") center top / 96% auto no-repeat,
+    linear-gradient(180deg, #a40d08 0%, #a90b07 48%, #9a0504 78%, #820601 100%),
+    #a40d08;
 }
 
-.query-hero::before,
+.query-hero::before {
+  display: none;
+}
+
 .query-hero::after {
   display: none;
 }
 
 .brand-strip img {
-  width: min(100%, 372px);
+  width: min(58vw, 214px);
   filter: none;
   opacity: 1;
 }
 
+.brand-strip {
+  display: none;
+}
+
 .hero-copy {
-  margin-top: 270px;
+  margin-top: clamp(330px, 48vh, 410px);
+}
+
+.parent-shell .hero-copy {
+  margin-top: clamp(360px, 48vh, 420px);
 }
 
 .hero-copy p {
   margin: 0 0 12px;
-  color: #fff;
+  color: #fff4df;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0;
@@ -1140,20 +1196,24 @@ button {
 }
 
 .hero-copy span {
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 224, 184, 0.92);
 }
 
 .lookup-panel {
   margin-top: 28px;
   padding: 24px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.38);
+  border: 1px solid rgba(253, 195, 111, 0.42);
   border-radius: 20px;
-  background: rgba(88, 0, 0, 0.18);
+  background: rgba(92, 4, 3, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(253, 195, 111, 0.16),
+    0 18px 34px rgba(77, 2, 2, 0.18);
+  backdrop-filter: blur(2px);
 }
 
 .lookup-panel label span {
   display: block;
-  color: #fff;
+  color: #fff4df;
   font-size: 14px;
   font-weight: 700;
 }
@@ -1161,47 +1221,52 @@ button {
 .lookup-panel input {
   height: 58px;
   padding: 0 18px;
-  border: 0;
+  border: 1px solid rgba(253, 195, 111, 0.24);
   border-radius: 18px;
-  color: #333;
-  background: #fff8f8;
+  color: #5f0704;
+  background: #fff4e7;
   box-shadow: none;
 }
 
 .lookup-panel button {
   margin-top: 20px;
   border-radius: 16px;
-  background: #ff3434;
-  box-shadow: none;
+  color: #fff8ea;
+  background: linear-gradient(180deg, #d71912 0%, #b60e09 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(253, 195, 111, 0.22),
+    0 10px 18px rgba(87, 3, 3, 0.24);
 }
 
 .inline-message {
   margin: -28px 18px 22px;
-  color: #7a1900;
-  background: #fff3e6;
-  border: 0;
+  color: #fff4df;
+  background: rgba(92, 4, 3, 0.42);
+  border: 1px solid rgba(253, 195, 111, 0.34);
 }
 
 .result-page {
-  background: #ef151a;
+  background: #a40d08;
+  box-shadow: 0 0 0 100vmax #a40d08;
 }
 
 .result-state {
   color: #fff;
   background:
-    linear-gradient(135deg, rgba(255, 214, 132, 0.16), transparent 34%),
-    linear-gradient(180deg, #e32222 0%, #b6080d 58%, #6f0709 100%);
+    linear-gradient(180deg, rgba(129, 4, 3, 0) 0%, rgba(129, 4, 3, 0.08) 45%, rgba(76, 2, 2, 0.28) 100%),
+    url("/images/parent-query-background.png") center top / 96% auto no-repeat,
+    linear-gradient(180deg, #a40d08 0%, #a90b07 48%, #9a0504 78%, #820601 100%),
+    #a40d08;
 }
 
 .result-state img {
-  filter: none;
-  opacity: 1;
+  display: none;
 }
 
 .result-state a,
 .result-actions a {
-  color: #b9151c;
-  background: #fff8f0;
+  color: #8b0504;
+  background: #fff4e7;
 }
 
 .certificate {
@@ -1245,7 +1310,8 @@ button {
 }
 
 .invitation-body .letter-status {
-  color: var(--green);
+  color: #c90f1a;
+  font-weight: 900;
 }
 
 .result-summary {
@@ -1323,6 +1389,145 @@ button {
 
 .result-actions {
   background: #a5090f;
+}
+
+/* Parent-facing result palette. */
+
+.result-page,
+.certificate,
+.result-actions {
+  background: linear-gradient(180deg, #b01c15, #87110e);
+}
+
+.result-state {
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(129, 4, 3, 0) 0%, rgba(129, 4, 3, 0.08) 45%, rgba(76, 2, 2, 0.28) 100%),
+    url("/images/parent-query-background.png") center top / 96% auto no-repeat,
+    linear-gradient(180deg, #a40d08 0%, #a90b07 48%, #9a0504 78%, #820601 100%),
+    #a40d08;
+  align-content: center;
+  padding: 34px 28px 0;
+}
+
+.result-state img {
+  display: none;
+}
+
+.result-state p {
+  max-width: 350px;
+  padding: 20px 20px;
+  border: 1px solid rgba(253, 195, 111, 0.42);
+  border-radius: 18px;
+  color: #fff4df;
+  background: rgba(92, 4, 3, 0.36);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.55;
+  backdrop-filter: blur(2px);
+}
+
+.certificate-frame {
+  border-color: #d9582a;
+  background: #fff;
+  box-shadow: 0 18px 38px rgba(76, 12, 9, 0.3);
+}
+
+.certificate-frame::before,
+.certificate-frame::after {
+  border-color: rgba(217, 88, 42, 0.22);
+}
+
+.admission-letter .invitation-head {
+  border-bottom: 2px solid #d9582a;
+  background:
+    radial-gradient(circle at 86% 0, rgba(217, 88, 42, 0.34), transparent 36%),
+    linear-gradient(180deg, #b51d15, #98140f);
+}
+
+.admission-letter .invitation-head h4 {
+  color: #fff;
+}
+
+.admission-letter .invitation-body,
+.summary-item,
+.ability-card,
+.result-detail-card,
+.course-time-card {
+  border-color: rgba(182, 53, 28, 0.3);
+  background: #fff;
+}
+
+.summary-item strong,
+.ability-copy h3,
+.result-detail-card h3,
+.course-time-card h3,
+.course-picker-group > span {
+  color: #5a211b;
+}
+
+.summary-item span,
+.ability-copy p,
+.result-detail-card p,
+.performance-rating > span {
+  color: #76504a;
+}
+
+.summary-item.ability-rank strong,
+.invitation-body .letter-status,
+.letter-student-line strong,
+.certificate-footer p,
+.course-time-message {
+  color: #aa1b14;
+}
+
+.ability-grid {
+  stroke: rgba(182, 53, 28, 0.2);
+}
+
+.ability-axis {
+  stroke: rgba(182, 53, 28, 0.14);
+}
+
+.ability-shape {
+  fill: rgba(217, 88, 42, 0.14);
+  stroke: #b6351c;
+}
+
+.ability-dot {
+  stroke: #b6351c;
+}
+
+.ability-label {
+  fill: #7b3024;
+}
+
+.performance-rating i {
+  color: #ead7d2;
+}
+
+.performance-rating i.active {
+  color: #b6351c;
+}
+
+.course-choice-grid button {
+  border-color: rgba(182, 53, 28, 0.38);
+  color: #6c2d23;
+  background: #fff;
+}
+
+.course-choice-grid button.active,
+.course-confirm {
+  border-color: #b6351c;
+  color: #fff;
+  background: linear-gradient(180deg, #c83b20, #a51913);
+  box-shadow: 0 8px 16px rgba(112, 16, 12, 0.22);
+}
+
+.result-state a,
+.result-actions a {
+  color: #8b0504;
+  background: #fff4e7;
 }
 
 .console-shell {

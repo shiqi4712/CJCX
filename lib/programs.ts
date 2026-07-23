@@ -9,9 +9,8 @@ export function normalizeProgramType(value?: string | null): ProgramType {
     .replace(/\s+/g, "")
     .replace(/·?英才计划/g, "");
 
-  if (normalized.includes("英才") || normalized.includes("yingcai")) return "英才特训营";
+  if (normalized === "特训营" || normalized.includes("英才") || normalized.includes("yingcai")) return "英才特训营";
   if (
-    normalized === "特训营" ||
     normalized.includes("科特训练营") ||
     normalized.includes("科特特训营") ||
     normalized.includes("texun") ||
@@ -36,6 +35,12 @@ export function getProgramQueryTitle(programType: ProgramType) {
 
 export function getProgramDisplayName(programType: ProgramType) {
   return programType === "科特特训营" ? "科特训练营" : programType;
+}
+
+export function getProgramResultName(importedName: string | null | undefined, programType: ProgramType) {
+  const displayName = String(importedName ?? "").trim();
+  if (displayName === "特训营") return "英才特训营";
+  return displayName || getProgramDisplayName(programType);
 }
 
 export function getProgramWelcomeNote() {

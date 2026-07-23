@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { COURSE_DAYS, COURSE_SLOTS } from "@/lib/course-times";
 import {
-  getProgramDisplayName,
   getProgramIntro,
   getProgramLearningGoal,
+  getProgramResultName,
   getProgramWelcomeNote,
   normalizeProgramType
 } from "@/lib/programs";
+import { getAbilityRankByOverallScore } from "@/lib/result-scoring";
 
 export type QueryResult = {
   studentId: string;
@@ -32,7 +33,6 @@ type AbilityScore = {
   value: number;
 };
 
-const ABILITY_COPY = "根据孩子本次课程表现，作品情况，课程互动等进行综合评估";
 const RADAR_ORDER = [0, 3, 2, 1, 4] as const;
 
 function splitCourseTime(value: string | null) {
@@ -99,13 +99,29 @@ function buildRadarPoints(scores: AbilityScore[]) {
     .join(" ");
 }
 
+function buildPerformanceRatings(result: QueryResult) {
+  const homeworkCount = result.homeworkLessonCount ?? 0;
+  return [
+    { label: "上课表现", value: (result.videoCount ?? 0) > 2 ? 4 : 3 },
+    {
+      label: "作业提交",
+      value: homeworkCount >= 3 ? 4 : 2 + (hashText(`${result.studentId}:${result.studentName}:homework-stars`) % 2)
+    },
+    { label: "课程打卡", value: 3 }
+  ];
+}
+
 export function AdmissionResult({ result }: { result: QueryResult }) {
   const admitted = result.admissionResult === "已录取";
   const programType = normalizeProgramType(result.programType ?? result.recommendedClass);
-  const programName = result.recommendedClass?.trim() || getProgramDisplayName(programType);
+  const programName = getProgramResultName(result.recommendedClass, programType);
   const certificateTitle = `${programName}录取通知书`;
   const abilityScores = buildAbilityScores(result);
   const radarPoints = buildRadarPoints(abilityScores);
+  const abilityRank =
+    getAbilityRankByOverallScore(result.overallScore) ??
+    2 + (hashText(`${result.studentId}:${result.studentName}:ability-rank`) % 9);
+  const performanceRatings = buildPerformanceRatings(result);
   const savedCourseTime = splitCourseTime(result.preferredCourseTime);
   const [selectedDay, setSelectedDay] = useState(savedCourseTime.day);
   const [selectedSlot, setSelectedSlot] = useState(savedCourseTime.slot);
@@ -189,8 +205,8 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
                 <strong>{result.score}</strong>
                 <span>综合等级</span>
               </div>
-              <div className="summary-item">
-                <strong>前10%</strong>
+              <div className="summary-item ability-rank">
+                <strong>前{abilityRank}%</strong>
                 <span>能力档位</span>
               </div>
             </section>
@@ -229,8 +245,19 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
                 </svg>
 
                 <div className="ability-copy">
-                  <h3>五维能力表现突出</h3>
-                  <p>{ABILITY_COPY}，适合进入进阶课程继续培养。</p>
+                  <h3>课程表现</h3>
+                  <div className="performance-ratings">
+                    {performanceRatings.map((rating) => (
+                      <div className="performance-rating" key={rating.label}>
+                        <span>{rating.label}</span>
+                        <strong aria-label={`${rating.value}颗星`}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <i className={star <= rating.value ? "active" : ""} key={star}>★</i>
+                          ))}
+                        </strong>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </section>
@@ -285,7 +312,7 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
               </div>
 
               <button className="course-confirm" type="button" onClick={() => void saveCourseTime()} disabled={saving}>
-                {saving ? "正在确认..." : "确认选择"}
+                {saving ? "正在确认..." : "确认录取"}
               </button>
               {message ? <span className="course-time-message">{message}</span> : null}
             </section>

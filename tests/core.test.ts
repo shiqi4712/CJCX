@@ -10,9 +10,11 @@ import {
   getProgramLearningGoal,
   getProgramLandingName,
   getProgramQueryTitle,
+  getProgramResultName,
   normalizeProgramType
 } from "../lib/programs";
 import { checkRateLimit, resetRateLimits } from "../lib/rate-limit";
+import { getAbilityRankByOverallScore } from "../lib/result-scoring";
 import { parseSheetFile, toStudentRows } from "../lib/sheets";
 import {
   getOverview,
@@ -58,6 +60,13 @@ function assertScoreInRange(value: string | null | undefined, min: number, max: 
   const numeric = Number(value);
   assert.ok(numeric >= min && numeric <= max, `${value} should be in [${min}, ${max}]`);
 }
+
+test("ability rank follows the overall score", () => {
+  assert.equal(getAbilityRankByOverallScore("97.00"), 10);
+  assert.equal(getAbilityRankByOverallScore("98.62"), 4);
+  assert.equal(getAbilityRankByOverallScore("99.00"), 2);
+  assert.equal(getAbilityRankByOverallScore(null), null);
+});
 
 test("CSV import supports quoted fields, teacher assignment and program type", async () => {
   const csv = new File(
@@ -168,7 +177,7 @@ test("student program type controls admitted class display", async () => {
   assert.equal(overview.students.find((student) => student.studentName === "英才学生")?.className, "英才班");
   assert.equal(overview.students.find((student) => student.studentName === "科特学生")?.className, "科特班");
   assert.equal(overview.students.find((student) => student.studentName === "育才学生")?.className, "育才班");
-  assert.equal(overview.students.find((student) => student.studentName === "特训学生")?.programType, "科特特训营");
+  assert.equal(overview.students.find((student) => student.studentName === "特训学生")?.programType, "英才特训营");
   assert.equal(overview.students.find((student) => student.studentName === "特训学生")?.className, "特训营");
 });
 
@@ -187,6 +196,8 @@ test("kete class has dedicated learning goal", () => {
 
 test("old elite class label maps to elite training camp", () => {
   assert.equal(normalizeProgramType("英才班"), "英才特训营");
+  assert.equal(normalizeProgramType("特训营"), "英才特训营");
+  assert.equal(getProgramResultName("特训营", "英才特训营"), "英才特训营");
   assert.equal(getProgramLandingName("英才特训营"), "英才特训营");
   assert.equal(getProgramQueryTitle("英才特训营"), "英才计划录取结果查询");
   assert.equal(getProgramQueryTitle("科特班"), "英才计划录取结果查询");
