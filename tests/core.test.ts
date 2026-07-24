@@ -75,10 +75,15 @@ test("performance ratings follow imported homework and video counts", () => {
     { label: "作业提交", value: 3 },
     { label: "视频打卡", value: 3 }
   ]);
+  assert.deepEqual(buildPerformanceRatings({ homeworkLessonCount: 1, videoCount: 1 }), [
+    { label: "上课表现", value: 4 },
+    { label: "作业提交", value: 3 },
+    { label: "视频打卡", value: 3 }
+  ]);
   assert.deepEqual(buildPerformanceRatings({ homeworkLessonCount: 2, videoCount: 2 }), [
     { label: "上课表现", value: 4 },
     { label: "作业提交", value: 4 },
-    { label: "视频打卡", value: 4 }
+    { label: "视频打卡", value: 5 }
   ]);
   assert.deepEqual(buildPerformanceRatings({ homeworkLessonCount: 3, videoCount: 3 }), [
     { label: "上课表现", value: 4 },
