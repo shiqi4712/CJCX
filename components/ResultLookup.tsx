@@ -75,7 +75,7 @@ export function ResultLookup() {
       setLoading(false);
       if (!response.ok) {
         setResult(null);
-        setMessage(response.status === 423 ? REVIEW_MESSAGE : data.message ?? "未查询到相关结果");
+        setMessage(response.status === 423 || response.status === 404 ? REVIEW_MESSAGE : data.message ?? REVIEW_MESSAGE);
         return;
       }
 
