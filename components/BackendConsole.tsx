@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const STUDENT_PAGE_SIZE = 20;
+const TEACHER_PAGE_SIZE = 10;
 
 type Overview = {
   stats: {
@@ -163,6 +164,7 @@ function Dashboard({
   const studentImportRef = useRef<HTMLInputElement>(null);
   const teacherImportRef = useRef<HTMLInputElement>(null);
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
+  const [teacherPage, setTeacherPage] = useState(1);
   const [studentSearch, setStudentSearch] = useState("");
   const [studentPage, setStudentPage] = useState(1);
   const [newStudentName, setNewStudentName] = useState("");
@@ -173,7 +175,15 @@ function Dashboard({
   const [newStudentMessageCount, setNewStudentMessageCount] = useState("");
   const [resultOpenAtInput, setResultOpenAtInput] = useState("");
   const isAdmin = loginState.role === "admin";
-  const teacherRows = overview?.teachers.filter((teacher) => teacher.role === "teacher") ?? [];
+  const teacherRows = useMemo(
+    () => overview?.teachers.filter((teacher) => teacher.role === "teacher") ?? [],
+    [overview?.teachers]
+  );
+  const teacherPageCount = Math.max(1, Math.ceil(teacherRows.length / TEACHER_PAGE_SIZE));
+  const visibleTeacherRows = useMemo(() => {
+    const start = (teacherPage - 1) * TEACHER_PAGE_SIZE;
+    return teacherRows.slice(start, start + TEACHER_PAGE_SIZE);
+  }, [teacherRows, teacherPage]);
   const studentRows = overview?.students ?? [];
   const normalizedStudentSearch = studentSearch.trim().toLowerCase();
   const filteredStudentRows = useMemo(
@@ -209,6 +219,12 @@ function Dashboard({
       setStudentPage(studentPageCount);
     }
   }, [studentPage, studentPageCount]);
+
+  useEffect(() => {
+    if (teacherPage > teacherPageCount) {
+      setTeacherPage(teacherPageCount);
+    }
+  }, [teacherPage, teacherPageCount]);
 
   useEffect(() => {
     setResultOpenAtInput(toDateTimeLocalValue(overview?.settings.resultOpenAt ?? null));
@@ -438,8 +454,9 @@ function Dashboard({
   }
 
   const stats = overview?.stats;
-  const teacherIds = teacherRows.map((teacher) => teacher.id);
-  const allTeachersSelected = teacherIds.length > 0 && selectedTeacherIds.length === teacherIds.length;
+  const visibleTeacherIds = visibleTeacherRows.map((teacher) => teacher.id);
+  const allTeachersSelected =
+    visibleTeacherIds.length > 0 && visibleTeacherIds.every((id) => selectedTeacherIds.includes(id));
 
   return (
     <section className="dashboard">
@@ -583,7 +600,10 @@ function Dashboard({
       {isAdmin ? (
         <section className="table-panel">
           <div className="table-panel-head">
-            <h3>老师账号管理</h3>
+            <div>
+              <h3>老师账号管理</h3>
+              <p>共 {teacherRows.length} 个老师账号，第 {teacherPage} / {teacherPageCount} 页，每页 {TEACHER_PAGE_SIZE} 条</p>
+            </div>
             <button
               disabled={selectedTeacherIds.length === 0}
               onClick={() =>
@@ -604,7 +624,7 @@ function Dashboard({
                       aria-label="全选老师"
                       checked={allTeachersSelected}
                       type="checkbox"
-                      onChange={() => toggleAll(teacherIds, selectedTeacherIds, setSelectedTeacherIds)}
+                      onChange={() => toggleAll(visibleTeacherIds, selectedTeacherIds, setSelectedTeacherIds)}
                     />
                   </th>
                   <th>老师姓名</th>
@@ -613,7 +633,7 @@ function Dashboard({
                 </tr>
               </thead>
               <tbody>
-                {teacherRows.map((teacher) => (
+                {visibleTeacherRows.map((teacher) => (
                     <tr key={teacher.id}>
                       <td>
                         <input
@@ -655,8 +675,27 @@ function Dashboard({
                       </td>
                     </tr>
                   ))}
+                {visibleTeacherRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={4}>暂无老师账号</td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
+          </div>
+          <div className="pagination">
+            <button disabled={teacherPage <= 1} onClick={() => setTeacherPage((page) => Math.max(1, page - 1))}>
+              上一页
+            </button>
+            <span>
+              第 {teacherPage} / {teacherPageCount} 页，每页 {TEACHER_PAGE_SIZE} 条
+            </span>
+            <button
+              disabled={teacherPage >= teacherPageCount}
+              onClick={() => setTeacherPage((page) => Math.min(teacherPageCount, page + 1))}
+            >
+              下一页
+            </button>
           </div>
         </section>
       ) : null}
