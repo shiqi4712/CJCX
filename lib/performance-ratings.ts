@@ -16,7 +16,8 @@ function getHomeworkStars(count: number | null | undefined) {
 
 function getVideoStars(count: number | null | undefined) {
   const normalized = normalizeCount(count);
-  if (normalized >= 2) return 5;
+  if (normalized >= 3) return 5;
+  if (normalized >= 2) return 4;
   return 3;
 }
 
@@ -26,7 +27,7 @@ export function buildPerformanceRatings(input: {
 }): PerformanceRating[] {
   return [
     { label: "上课表现", value: 4 },
-    { label: "作业提交", value: getHomeworkStars(input.homeworkLessonCount) },
-    { label: "视频打卡", value: getVideoStars(input.videoCount) }
+    { label: "思维能力", value: getHomeworkStars(input.homeworkLessonCount) },
+    { label: "创新能力", value: getVideoStars(input.videoCount) }
   ];
 }
