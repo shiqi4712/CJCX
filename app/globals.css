@@ -1144,7 +1144,7 @@ button {
   color: #fff;
   background:
     linear-gradient(180deg, rgba(129, 4, 3, 0) 0%, rgba(129, 4, 3, 0.08) 45%, rgba(76, 2, 2, 0.28) 100%),
-    url("/images/parent-query-background.png") center top / 96% auto no-repeat,
+    url("/images/parent-login-background.png") center top / 96% auto no-repeat,
     linear-gradient(180deg, #a40d08 0%, #a90b07 48%, #9a0504 78%, #820601 100%),
     #a40d08;
 }
