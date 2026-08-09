@@ -201,6 +201,18 @@ function mapTeacher(row: Record<string, unknown>): TeacherAccount {
   };
 }
 
+function mapQueryLog(row: Record<string, unknown>): QueryLog {
+  return {
+    id: String(row.id),
+    inputStudentName: String(row.input_student_name),
+    matchedStudentId: row.matched_student_id ? String(row.matched_student_id) : null,
+    matchedStudentName: row.matched_student_name ? String(row.matched_student_name) : null,
+    matchedTeacherName: row.matched_teacher_name ? String(row.matched_teacher_name) : null,
+    resultStatus: row.result_status as QueryLog["resultStatus"],
+    queriedAt: new Date(String(row.queried_at)).toISOString()
+  };
+}
+
 export async function recordPendingReviewQuery(studentName: string) {
   await ensureReady();
   const normalized = normalizeName(studentName);
@@ -240,6 +252,81 @@ export async function recordPendingReviewQuery(studentName: string) {
       row?.teacher_name ? String(row.teacher_name) : null
     ]
   );
+}
+
+const PENDING_REVIEW_PAGE_SIZE = 10;
+
+function filterMemoryPendingReviewLogs(role: Role, teacherName?: string) {
+  return memory.queryLogs.filter(
+    (log) =>
+      log.resultStatus === "pending_review" &&
+      (role === "admin" || log.matchedTeacherName === teacherName)
+  );
+}
+
+export async function getPendingReviewLogs(role: Role, teacherName: string | undefined, requestedPage = 1) {
+  await ensureReady();
+  const page = Math.max(1, Math.trunc(requestedPage) || 1);
+
+  if (!hasDatabase()) {
+    const allRows = filterMemoryPendingReviewLogs(role, teacherName);
+    const total = allRows.length;
+    const pageCount = Math.max(1, Math.ceil(total / PENDING_REVIEW_PAGE_SIZE));
+    const currentPage = Math.min(page, pageCount);
+    const offset = (currentPage - 1) * PENDING_REVIEW_PAGE_SIZE;
+    return {
+      rows: allRows.slice(offset, offset + PENDING_REVIEW_PAGE_SIZE),
+      total,
+      page: currentPage,
+      pageSize: PENDING_REVIEW_PAGE_SIZE,
+      pageCount
+    };
+  }
+
+  const sql = getSql();
+  const teacherFilter = role === "teacher" ? " AND matched_teacher_name = $1" : "";
+  const params = role === "teacher" ? [teacherName] : [];
+  const countRows = (await sql.query(
+    `SELECT COUNT(*) AS total_count FROM query_logs WHERE result_status = 'pending_review'${teacherFilter}`,
+    params
+  )) as unknown as Record<string, unknown>[];
+  const total = Number(countRows[0]?.total_count ?? 0);
+  const pageCount = Math.max(1, Math.ceil(total / PENDING_REVIEW_PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const offset = (currentPage - 1) * PENDING_REVIEW_PAGE_SIZE;
+  const rows = (await sql.query(
+    `SELECT * FROM query_logs
+     WHERE result_status = 'pending_review'${teacherFilter}
+     ORDER BY queried_at DESC, id DESC
+     LIMIT ${PENDING_REVIEW_PAGE_SIZE} OFFSET ${offset}`,
+    params
+  )) as unknown as Record<string, unknown>[];
+
+  return {
+    rows: rows.map(mapQueryLog),
+    total,
+    page: currentPage,
+    pageSize: PENDING_REVIEW_PAGE_SIZE,
+    pageCount
+  };
+}
+
+export async function getPendingReviewLogsForExport(role: Role, teacherName?: string) {
+  await ensureReady();
+
+  if (!hasDatabase()) {
+    return filterMemoryPendingReviewLogs(role, teacherName);
+  }
+
+  const teacherFilter = role === "teacher" ? " AND matched_teacher_name = $1" : "";
+  const params = role === "teacher" ? [teacherName] : [];
+  const rows = (await getSql().query(
+    `SELECT * FROM query_logs
+     WHERE result_status = 'pending_review'${teacherFilter}
+     ORDER BY queried_at DESC, id DESC`,
+    params
+  )) as unknown as Record<string, unknown>[];
+  return rows.map(mapQueryLog);
 }
 
 export async function queryStudentByName(studentName: string) {
@@ -836,19 +923,7 @@ export async function resetStudentQuery(id: string, role: Role, teacherName?: st
 }
 
 export async function deleteStudent(id: string) {
-  await ensureReady();
-  if (!hasDatabase()) {
-    const index = memory.students.findIndex((student) => student.id === id);
-    if (index < 0) return false;
-    memory.students.splice(index, 1);
-    return true;
-  }
-  const sql = getSql();
-  if (sql.dialect === "mysql") {
-    return (await sql.execute("DELETE FROM students WHERE id=$1", [id])).affectedRows > 0;
-  }
-  const rows = (await sql.query("DELETE FROM students WHERE id=$1 RETURNING id", [id])) as unknown[];
-  return rows.length > 0;
+  return (await deleteStudents([id])) > 0;
 }
 
 export async function deleteStudents(ids: string[]) {
@@ -858,6 +933,9 @@ export async function deleteStudents(ids: string[]) {
 
   if (!hasDatabase()) {
     const before = memory.students.length;
+    memory.queryLogs = memory.queryLogs.filter(
+      (log) => log.resultStatus !== "pending_review" || !log.matchedStudentId || !uniqueIds.includes(log.matchedStudentId)
+    );
     memory.students = memory.students.filter((student) => !uniqueIds.includes(student.id));
     return before - memory.students.length;
   }
@@ -865,9 +943,17 @@ export async function deleteStudents(ids: string[]) {
   const sql = getSql();
   if (sql.dialect === "mysql") {
     const placeholders = uniqueIds.map(() => "?").join(",");
+    await sql.execute(
+      `DELETE FROM query_logs WHERE result_status = 'pending_review' AND matched_student_id IN (${placeholders})`,
+      uniqueIds
+    );
     return (await sql.execute(`DELETE FROM students WHERE id IN (${placeholders})`, uniqueIds)).affectedRows;
   }
 
+  await sql.query(
+    "DELETE FROM query_logs WHERE result_status = 'pending_review' AND matched_student_id = ANY($1::uuid[])",
+    [uniqueIds]
+  );
   const rows = (await sql.query("DELETE FROM students WHERE id = ANY($1::uuid[]) RETURNING id", [uniqueIds])) as unknown[];
   return rows.length;
 }
@@ -878,10 +964,12 @@ export async function deleteAllStudents() {
   if (!hasDatabase()) {
     const deletedCount = memory.students.length;
     memory.students = [];
+    memory.queryLogs = memory.queryLogs.filter((log) => log.resultStatus !== "pending_review");
     return deletedCount;
   }
 
   const sql = getSql();
+  await sql.query("DELETE FROM query_logs WHERE result_status = 'pending_review'");
   if (sql.dialect === "mysql") {
     return (await sql.execute("DELETE FROM students")).affectedRows;
   }

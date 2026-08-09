@@ -22,7 +22,10 @@ import {
   importStudents,
   importTeachers,
   login,
+  getPendingReviewLogs,
+  recordPendingReviewQuery,
   queryStudentByName,
+  deleteAllStudents,
   deleteStudents,
   deleteTeachers,
   resetStudentQuery,
@@ -285,6 +288,61 @@ test("teacher can reset assigned student query eligibility", async () => {
   for (let count = 2; count <= 8; count += 1) {
     assert.equal((await queryStudentByName("张小明"))?.queryCount, 1);
   }
+});
+
+test("pending review visits remain available after release and paginate by ten", async () => {
+  resetMemoryStoreForTests();
+  await importTeachers([{ teacherName: "审核老师", password: "abc123" }]);
+  await importStudents([{ studentName: "审核学生", score: "A+", teacherName: "审核老师" }]);
+
+  for (let index = 0; index < 12; index += 1) {
+    await recordPendingReviewQuery("审核学生");
+  }
+
+  await queryStudentByName("审核学生");
+
+  const firstPage = await getPendingReviewLogs("admin", undefined, 1);
+  assert.equal(firstPage.total, 12);
+  assert.equal(firstPage.pageSize, 10);
+  assert.equal(firstPage.pageCount, 2);
+  assert.equal(firstPage.rows.length, 10);
+  assert.ok(firstPage.rows.every((log) => log.resultStatus === "pending_review"));
+
+  const secondPage = await getPendingReviewLogs("admin", undefined, 2);
+  assert.equal(secondPage.rows.length, 2);
+
+  const teacherPage = await getPendingReviewLogs("teacher", "审核老师", 1);
+  assert.equal(teacherPage.total, 12);
+});
+
+test("deleting students also deletes their pending review visits", async () => {
+  resetMemoryStoreForTests();
+  await importTeachers([{ teacherName: "审核老师", password: "abc123" }]);
+  await importStudents([
+    { studentName: "待删学生", score: "A+", teacherName: "审核老师" },
+    { studentName: "保留学生", score: "A", teacherName: "审核老师" }
+  ]);
+
+  await recordPendingReviewQuery("待删学生");
+  await recordPendingReviewQuery("保留学生");
+  await recordPendingReviewQuery("未录入学生");
+
+  const overview = await getOverview("admin");
+  const studentToDelete = overview.students.find((student) => student.studentName === "待删学生");
+  assert.ok(studentToDelete);
+  assert.equal(await deleteStudents([studentToDelete.id]), 1);
+
+  const afterSingleDelete = await getPendingReviewLogs("admin", undefined, 1);
+  assert.equal(afterSingleDelete.total, 2);
+  assert.deepEqual(
+    new Set(afterSingleDelete.rows.map((log) => log.inputStudentName)),
+    new Set(["保留学生", "未录入学生"])
+  );
+
+  assert.equal(await deleteAllStudents(), 1);
+  const afterDeleteAll = await getPendingReviewLogs("admin", undefined, 1);
+  assert.equal(afterDeleteAll.total, 0);
+  assert.equal(afterDeleteAll.rows.length, 0);
 });
 
 test("bulk delete removes selected teachers and students", async () => {

@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 
 const STUDENT_PAGE_SIZE = 20;
 const TEACHER_PAGE_SIZE = 10;
+const PENDING_REVIEW_PAGE_SIZE = 10;
 
 type Overview = {
   stats: {
@@ -174,6 +175,12 @@ function Dashboard({
   const [newStudentVideoCount, setNewStudentVideoCount] = useState("");
   const [newStudentMessageCount, setNewStudentMessageCount] = useState("");
   const [resultOpenAtInput, setResultOpenAtInput] = useState("");
+  const [pendingReviewLogs, setPendingReviewLogs] = useState<Overview["queryLogs"]>([]);
+  const [pendingReviewPage, setPendingReviewPage] = useState(1);
+  const [pendingReviewTotal, setPendingReviewTotal] = useState(0);
+  const [pendingReviewPageCount, setPendingReviewPageCount] = useState(1);
+  const [pendingReviewLoading, setPendingReviewLoading] = useState(false);
+  const [pendingReviewExporting, setPendingReviewExporting] = useState(false);
   const isAdmin = loginState.role === "admin";
   const teacherRows = useMemo(
     () => overview?.teachers.filter((teacher) => teacher.role === "teacher") ?? [],
@@ -200,15 +207,36 @@ function Dashboard({
   }, [filteredStudentRows, studentPage]);
   const totalQueryCount = studentRows.reduce((sum, student) => sum + student.queryCount, 0);
   const queryRate = statsPercent(studentRows.filter((student) => student.queried).length, studentRows.length);
-  const pendingReviewLogs = (overview?.queryLogs ?? []).filter((log) => log.resultStatus === "pending_review");
+
+  const refreshPendingReviewLogs = useCallback(async (page: number) => {
+    setPendingReviewLoading(true);
+    try {
+      const response = await fetch(`/api/query-logs/pending-review?page=${page}`, { cache: "no-store" });
+      if (!response.ok) return;
+      const data = (await response.json()) as {
+        rows: Overview["queryLogs"];
+        total: number;
+        page: number;
+        pageCount: number;
+      };
+      setPendingReviewLogs(data.rows);
+      setPendingReviewTotal(data.total);
+      setPendingReviewPageCount(data.pageCount);
+      if (data.page !== page) setPendingReviewPage(data.page);
+    } finally {
+      setPendingReviewLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
+    void refreshPendingReviewLogs(pendingReviewPage);
     const timer = window.setInterval(() => {
       void refreshOverview();
+      void refreshPendingReviewLogs(pendingReviewPage);
     }, 15_000);
 
     return () => window.clearInterval(timer);
-  }, [refreshOverview]);
+  }, [pendingReviewPage, refreshOverview, refreshPendingReviewLogs]);
 
   useEffect(() => {
     setStudentPage(1);
@@ -264,6 +292,9 @@ function Dashboard({
     }
     setStatus("操作成功");
     await refreshOverview();
+    if (method === "DELETE" && endpoint.startsWith("/api/admin/students/")) {
+      await refreshPendingReviewLogs(pendingReviewPage);
+    }
   }
 
   async function addSingleStudent(event: FormEvent<HTMLFormElement>) {
@@ -369,6 +400,7 @@ function Dashboard({
     onDone();
     setStatus(`已删除 ${data.deletedCount ?? ids.length} 条${label}`);
     await refreshOverview();
+    await refreshPendingReviewLogs(pendingReviewPage);
   }
 
   async function deleteAllStudentRows() {
@@ -376,7 +408,11 @@ function Dashboard({
       setStatus("当前没有可删除的学生名单");
       return;
     }
-    if (!window.confirm(`确认删除全部 ${studentRows.length} 条学生名单？此操作不可恢复，但不会删除老师账号。`)) {
+    if (
+      !window.confirm(
+        `确认删除全部 ${studentRows.length} 条学生名单？全部审核期访问记录也会一并删除，此操作不可恢复，但不会删除老师账号。`
+      )
+    ) {
       return;
     }
 
@@ -392,8 +428,10 @@ function Dashboard({
     }
 
     setStudentPage(1);
-    setStatus(`已删除全部学生名单：${data.deletedCount ?? studentRows.length} 条`);
+    setPendingReviewPage(1);
+    setStatus(`已删除全部学生名单及审核期访问记录：${data.deletedCount ?? studentRows.length} 条学生`);
     await refreshOverview();
+    await refreshPendingReviewLogs(1);
   }
 
   function toggleSelection(id: string, selectedIds: string[], setSelectedIds: (ids: string[]) => void) {
@@ -451,6 +489,31 @@ function Dashboard({
     link.remove();
     URL.revokeObjectURL(url);
     setStatus("已导出学生查询情况");
+  }
+
+  async function exportPendingReviewLogs() {
+    setPendingReviewExporting(true);
+    try {
+      const response = await fetch("/api/query-logs/pending-review/export", { cache: "no-store" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        setStatus(data?.message ?? "审核期访问记录导出失败");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "审核期访问记录.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setStatus(`已导出全部 ${pendingReviewTotal} 条审核期访问记录`);
+    } finally {
+      setPendingReviewExporting(false);
+    }
   }
 
   const stats = overview?.stats;
@@ -706,6 +769,17 @@ function Dashboard({
             <h3>审核期访问记录</h3>
             <p>家长在成绩开放前点击查询会记录在这里，但不会计入查询次数，也不会改变学生查询状态。</p>
           </div>
+          <div className="table-actions">
+            <span className="table-count">
+              共 {pendingReviewTotal} 条，第 {pendingReviewPage} / {pendingReviewPageCount} 页
+            </span>
+            <button
+              disabled={pendingReviewExporting || pendingReviewTotal === 0}
+              onClick={() => void exportPendingReviewLogs()}
+            >
+              {pendingReviewExporting ? "导出中..." : "导出访问记录"}
+            </button>
+          </div>
         </div>
         <div className="table-wrap">
           <table>
@@ -730,11 +804,28 @@ function Dashboard({
               ))}
               {pendingReviewLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>暂无审核期访问记录</td>
+                  <td colSpan={5}>{pendingReviewLoading ? "正在加载..." : "暂无审核期访问记录"}</td>
                 </tr>
               ) : null}
             </tbody>
           </table>
+        </div>
+        <div className="pagination">
+          <button
+            disabled={pendingReviewLoading || pendingReviewPage <= 1}
+            onClick={() => setPendingReviewPage((page) => Math.max(1, page - 1))}
+          >
+            上一页
+          </button>
+          <span>
+            第 {pendingReviewPage} / {pendingReviewPageCount} 页，每页 {PENDING_REVIEW_PAGE_SIZE} 条
+          </span>
+          <button
+            disabled={pendingReviewLoading || pendingReviewPage >= pendingReviewPageCount}
+            onClick={() => setPendingReviewPage((page) => Math.min(pendingReviewPageCount, page + 1))}
+          >
+            下一页
+          </button>
         </div>
       </section>
 
@@ -837,7 +928,7 @@ function Dashboard({
                       </button>
                       <button
                         onClick={() => {
-                          if (window.confirm(`确认删除学生 ${student.studentName}？`)) {
+                          if (window.confirm(`确认删除学生 ${student.studentName}？该学生对应的审核期访问记录也会一并删除。`)) {
                             void mutate(`/api/admin/students/${student.id}`, "DELETE");
                           }
                         }}
