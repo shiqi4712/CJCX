@@ -1132,21 +1132,21 @@ button {
 /* Classic full-red parent theme. */
 .parent-shell {
   padding: 0;
-  background: #a40d08;
-  box-shadow: 0 0 0 100vmax #a40d08;
+  background: #d40705;
+  box-shadow: 0 0 0 100vmax #d40705;
 }
 
 .query-hero {
-  min-height: 100vh;
+  position: relative;
+  min-height: 100svh;
   padding: 0 24px 34px;
   border: 0;
   border-radius: 0;
   color: #fff;
   background:
-    linear-gradient(180deg, rgba(129, 4, 3, 0) 0%, rgba(129, 4, 3, 0.08) 45%, rgba(76, 2, 2, 0.28) 100%),
-    url("/images/parent-login-background.png") center top / 96% auto no-repeat,
-    linear-gradient(180deg, #a40d08 0%, #a90b07 48%, #9a0504 78%, #820601 100%),
-    #a40d08;
+    linear-gradient(180deg, rgba(139, 0, 0, 0.04) 0%, rgba(139, 0, 0, 0.1) 48%, rgba(95, 0, 0, 0.2) 100%),
+    url("/images/parent-login-background.png") center center / cover no-repeat,
+    #d40705;
 }
 
 .query-hero::before {
@@ -1158,57 +1158,82 @@ button {
 }
 
 .brand-strip img {
-  width: min(58vw, 214px);
+  width: min(50vw, 216px);
   filter: none;
-  opacity: 1;
+  opacity: 0.98;
 }
 
 .brand-strip {
-  display: none;
+  position: absolute;
+  top: clamp(18px, 5vw, 30px);
+  left: clamp(18px, 5vw, 30px);
+  z-index: 1;
+  display: block;
+  width: min(50vw, 216px);
+  pointer-events: none;
 }
 
 .hero-copy {
-  margin-top: clamp(330px, 48vh, 410px);
+  margin-top: clamp(107px, 20vh, 167px);
 }
 
 .parent-shell .hero-copy {
-  margin-top: clamp(360px, 48vh, 420px);
+  margin-top: clamp(107px, 20vh, 167px);
+  text-align: left;
 }
 
 .hero-copy p {
-  margin: 0 0 12px;
-  color: #fff4df;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0;
+  margin: 0 0 4px;
+  color: #fff;
+  font-size: clamp(38px, 12vw, 56px);
+  font-weight: 950;
+  line-height: 1.05;
+  letter-spacing: -1px;
   text-transform: none;
+  text-shadow: 0 3px 10px rgba(103, 0, 0, 0.18);
 }
 
 .hero-copy p::before {
   content: none;
 }
 
+.hero-brand-slogan {
+  display: block;
+  margin: 0 0 46px;
+  color: #ffe0a4;
+  font-size: clamp(40px, 12vw, 58px);
+  font-weight: 950;
+  line-height: 1.03;
+  letter-spacing: -2px;
+  white-space: nowrap;
+  text-shadow: 0 4px 12px rgba(103, 0, 0, 0.22);
+}
+
 .hero-copy h1 {
+  margin-top: 0;
   color: #fff;
-  font-size: clamp(22px, 6vw, 26px);
+  font-size: clamp(22px, 6vw, 28px);
   line-height: 1.25;
   letter-spacing: 0;
+  text-align: center;
 }
 
 .hero-copy span {
+  display: block;
   color: rgba(255, 224, 184, 0.92);
+  text-align: center;
 }
 
 .lookup-panel {
   margin-top: 28px;
   padding: 24px 18px;
-  border: 1px solid rgba(253, 195, 111, 0.42);
+  border: 1px solid rgba(255, 210, 126, 0.36);
   border-radius: 20px;
-  background: rgba(92, 4, 3, 0.32);
+  background: rgba(113, 0, 0, 0.22);
   box-shadow:
-    inset 0 1px 0 rgba(253, 195, 111, 0.16),
-    0 18px 34px rgba(77, 2, 2, 0.18);
-  backdrop-filter: blur(2px);
+    inset 0 1px 0 rgba(255, 222, 150, 0.16),
+    0 18px 34px rgba(113, 0, 0, 0.14);
+  backdrop-filter: blur(3px);
 }
 
 .lookup-panel label span {

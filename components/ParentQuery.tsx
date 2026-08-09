@@ -30,11 +30,12 @@ export function ParentQuery() {
     <main className="parent-shell">
       <section className="query-hero" aria-label={title}>
         <header className="brand-strip">
-          <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
+          <img src="/images/parent-login-logo.png" alt="北大-点猫科技人工智能教育联合实验室" />
         </header>
 
         <div className="hero-copy">
-          <p>编程猫在线教育中心</p>
+          <p>学编程，就选</p>
+          <strong className="hero-brand-slogan">北大认可品牌！</strong>
           <h1>{title}</h1>
           <span>输入学员姓名，查看本次选拔录取结果</span>
         </div>
