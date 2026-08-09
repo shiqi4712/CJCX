@@ -36,11 +36,13 @@ export function ParentQuery() {
         <div className="hero-copy">
           <p>学编程，就选</p>
           <strong className="hero-brand-slogan">北大认可品牌！</strong>
-          <h1>{title}</h1>
-          <span>输入学员姓名，查看本次选拔录取结果</span>
         </div>
 
         <form className="lookup-panel" onSubmit={handleSubmit}>
+          <div className="lookup-intro">
+            <h1>{title}</h1>
+            <span>输入学员姓名，查看本次选拔录取结果</span>
+          </div>
           <label>
             <span>学员姓名</span>
             <input
