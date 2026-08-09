@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdmissionResult, type QueryResult } from "@/components/AdmissionResult";
+import { ResultStateBrand } from "@/components/ResultStateBrand";
 
 const REVIEW_MESSAGE = "教学中心成绩审核进行中，请您耐心等待";
 const REQUEST_TIMEOUT_MS = 12000;
@@ -96,8 +97,8 @@ export function ResultLookup() {
     <main className="result-page">
       {loading || message ? (
         <section className="result-state">
-          <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
-          <p>{message}</p>
+          <ResultStateBrand />
+          <p className="result-state-message">{message}</p>
           {!loading ? <Link href="/">返回查询</Link> : null}
         </section>
       ) : null}
