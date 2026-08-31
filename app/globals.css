@@ -1731,6 +1731,38 @@ button {
   margin-top: 10px;
 }
 
+.student-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+.student-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.student-filter span {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.student-filter select {
+  min-height: 38px;
+  min-width: 150px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 30px 8px 10px;
+  background: #fff;
+  color: #1f2937;
+  font-weight: 700;
+}
+
 .student-search span {
   color: #374151;
   font-size: 13px;

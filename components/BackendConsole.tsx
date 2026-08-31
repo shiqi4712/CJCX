@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 const STUDENT_PAGE_SIZE = 20;
 const TEACHER_PAGE_SIZE = 10;
 const PENDING_REVIEW_PAGE_SIZE = 10;
+const EMPTY_WAR_ZONE = "__empty_war_zone__";
 
 type Overview = {
   stats: {
@@ -168,6 +169,7 @@ function Dashboard({
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
   const [teacherPage, setTeacherPage] = useState(1);
   const [studentSearch, setStudentSearch] = useState("");
+  const [studentWarZone, setStudentWarZone] = useState("all");
   const [studentPage, setStudentPage] = useState(1);
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentScore, setNewStudentScore] = useState("");
@@ -194,12 +196,38 @@ function Dashboard({
   }, [teacherRows, teacherPage]);
   const studentRows = overview?.students ?? [];
   const normalizedStudentSearch = studentSearch.trim().toLowerCase();
+  const warZoneOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    studentRows.forEach((student) => {
+      const key = student.warZone.trim() || EMPTY_WAR_ZONE;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    });
+    return [
+      { value: "all", label: "全部战区", count: studentRows.length },
+      ...Array.from(counts.entries())
+        .sort(([left], [right]) => {
+          if (left === EMPTY_WAR_ZONE) return 1;
+          if (right === EMPTY_WAR_ZONE) return -1;
+          return left.localeCompare(right, "zh-CN");
+        })
+        .map(([value, count]) => ({
+          value,
+          label: value === EMPTY_WAR_ZONE ? "未设置战区" : value,
+          count
+        }))
+    ];
+  }, [studentRows]);
   const filteredStudentRows = useMemo(
     () =>
-      normalizedStudentSearch
-        ? studentRows.filter((student) => student.studentName.toLowerCase().includes(normalizedStudentSearch))
-        : studentRows,
-    [normalizedStudentSearch, studentRows]
+      studentRows.filter((student) => {
+        const matchesSearch =
+          !normalizedStudentSearch || student.studentName.toLowerCase().includes(normalizedStudentSearch);
+        const matchesWarZone =
+          studentWarZone === "all" ||
+          (studentWarZone === EMPTY_WAR_ZONE ? !student.warZone.trim() : student.warZone === studentWarZone);
+        return matchesSearch && matchesWarZone;
+      }),
+    [normalizedStudentSearch, studentRows, studentWarZone]
   );
   const studentPageCount = Math.max(1, Math.ceil(filteredStudentRows.length / STUDENT_PAGE_SIZE));
   const visibleStudentRows = useMemo(() => {
@@ -241,7 +269,13 @@ function Dashboard({
 
   useEffect(() => {
     setStudentPage(1);
-  }, [normalizedStudentSearch]);
+  }, [normalizedStudentSearch, studentWarZone]);
+
+  useEffect(() => {
+    if (studentWarZone !== "all" && !warZoneOptions.some((option) => option.value === studentWarZone)) {
+      setStudentWarZone("all");
+    }
+  }, [studentWarZone, warZoneOptions]);
 
   useEffect(() => {
     if (studentPage > studentPageCount) {
@@ -836,14 +870,28 @@ function Dashboard({
         <div className="table-panel-head">
           <div>
             <h3>学生查询状态</h3>
-            <label className="student-search">
-              <span>搜索学生</span>
-              <input
-                value={studentSearch}
-                onChange={(event) => setStudentSearch(event.target.value)}
-                placeholder="输入学生姓名"
-              />
-            </label>
+            <div className="student-filters">
+              <label className="student-search">
+                <span>搜索学生</span>
+                <input
+                  value={studentSearch}
+                  onChange={(event) => setStudentSearch(event.target.value)}
+                  placeholder="输入学生姓名"
+                />
+              </label>
+              {isAdmin ? (
+                <label className="student-filter">
+                  <span>按战区</span>
+                  <select value={studentWarZone} onChange={(event) => setStudentWarZone(event.target.value)}>
+                    {warZoneOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}（{option.count}人）
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+            </div>
           </div>
           {isAdmin ? (
             <div className="table-actions">
