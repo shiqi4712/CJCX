@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         message:
-          "表头必须包含：学生姓名、成绩；可选：老师姓名、班级类型、提交作业课次数、录制视频次数、学生消息数。综合得分由系统自动生成。"
+          "表头必须包含：学生姓名、成绩；可选：老师姓名、班级类型、战区、提交作业课次数、录制视频次数、学生消息数。综合得分由系统自动生成。"
       },
       { status: 400 }
     );

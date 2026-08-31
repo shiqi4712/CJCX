@@ -21,6 +21,7 @@ type Overview = {
     score: string;
     overallScore: string | null;
     programType: string;
+    warZone: string;
     className: string;
     admission: string;
     queried: boolean;
@@ -453,6 +454,7 @@ function Dashboard({
       "成绩",
       "综合得分",
       "班级类型",
+      "战区",
       "老师",
       "查询状态",
       "查询次数",
@@ -468,6 +470,7 @@ function Dashboard({
       student.score,
       student.overallScore ?? "",
       student.className,
+      student.warZone,
       student.teacherName,
       student.queried ? "已查询" : "未查询",
       String(student.queryCount),
@@ -582,7 +585,7 @@ function Dashboard({
           <section className="tool-panel">
             <h3>学生成绩信息</h3>
             <p>
-              支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、班级类型、提交作业课次数、录制视频次数、学生消息数。综合得分由系统自动生成；班级类型可填：英才特训营、科特班、育才班、特训营。
+              支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、班级类型、战区、提交作业课次数、录制视频次数、学生消息数。综合得分由系统自动生成；班级类型可填：英才特训营、科特班、育才班、特训营。
             </p>
             <input ref={studentImportRef} type="file" accept=".xlsx,.csv" />
             <button onClick={() => uploadFile("/api/admin/students/import", studentImportRef.current, "学生成绩")}>
@@ -865,6 +868,7 @@ function Dashboard({
                 <th>成绩</th>
                 <th>综合得分</th>
                 <th>班级类型</th>
+                <th>战区</th>
                 <th>老师</th>
                 <th>上课时间</th>
                 <th>作业</th>
@@ -883,6 +887,7 @@ function Dashboard({
                   <td>{student.score}</td>
                   <td>{student.overallScore ?? "-"}</td>
                   <td>{student.className}</td>
+                  <td>{student.warZone || "-"}</td>
                   <td>{student.teacherName}</td>
                   <td>{student.preferredCourseTime ?? "-"}</td>
                   <td>{student.homeworkLessonCount}</td>
@@ -942,7 +947,7 @@ function Dashboard({
               ))}
               {visibleStudentRows.length === 0 ? (
                 <tr>
-                  <td colSpan={13}>没有匹配的学生</td>
+                  <td colSpan={14}>没有匹配的学生</td>
                 </tr>
               ) : null}
             </tbody>

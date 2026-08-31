@@ -9,6 +9,7 @@ export type Student = {
   score: string;
   overallScore: string | null;
   programType: ProgramType;
+  warZone: string;
   admission: string;
   className: string;
   detail: string;
@@ -59,6 +60,7 @@ export type SheetStudentRow = {
   homeworkLessonCount?: number;
   videoCount?: number;
   messageCount?: number;
+  warZone?: string;
 };
 
 export type SheetTeacherRow = {

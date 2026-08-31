@@ -95,13 +95,13 @@ test("performance ratings follow imported homework and video counts", () => {
   ]);
 });
 
-test("CSV import supports quoted fields, teacher assignment and program type", async () => {
+test("CSV import supports quoted fields, teacher assignment, program type and war zone", async () => {
   const csv = new File(
     [
       [
-        "学生姓名,成绩,老师姓名,班级类型,提交作业课次数,录制视频次数,学生消息数",
-        '"张小明",A,王老师,育才班,3,1,45',
-        '"李小明",A+,李老师,特训营,0,2,8'
+        "学生姓名,成绩,老师姓名,班级类型,战区,提交作业课次数,录制视频次数,学生消息数",
+        '"张小明",A,王老师,育才班,华东战区,3,1,45',
+        '"李小明",A+,李老师,特训营,华南战区,0,2,8'
       ].join("\n")
     ],
     "students.csv",
@@ -117,6 +117,7 @@ test("CSV import supports quoted fields, teacher assignment and program type", a
       overallScore: null,
       teacherName: "王老师",
       programType: "育才班",
+      warZone: "华东战区",
       homeworkLessonCount: 3,
       videoCount: 1,
       messageCount: 45
@@ -127,6 +128,7 @@ test("CSV import supports quoted fields, teacher assignment and program type", a
       overallScore: null,
       teacherName: "李老师",
       programType: "特训营",
+      warZone: "华南战区",
       homeworkLessonCount: 0,
       videoCount: 2,
       messageCount: 8
@@ -169,17 +171,20 @@ test("duplicate imports update records and teachers only see assigned students",
     { teacherName: "李老师", password: "abc123" }
   ]);
   const first = await importStudents([
-    { studentName: "张小明", score: "A", overallScore: "96.5", teacherName: "王老师" },
+    { studentName: "张小明", score: "A", overallScore: "96.5", teacherName: "王老师", warZone: "华东战区" },
     { studentName: "张小明", score: "B", teacherName: "李老师" }
   ]);
   assert.equal(first.importedCount, 2);
 
-  const duplicate = await importStudents([{ studentName: "张小明", score: "A+", teacherName: "王老师" }]);
+  const duplicate = await importStudents([
+    { studentName: "张小明", score: "A+", teacherName: "王老师", warZone: "华南战区" }
+  ]);
   assert.equal(duplicate.updatedCount, 1);
 
   const teacherOverview = await getOverview("teacher", "王老师");
   assert.equal(teacherOverview.students.length, 1);
   assert.equal(teacherOverview.students[0].score, "A+");
+  assert.equal(teacherOverview.students[0].warZone, "华南战区");
   assert.equal(teacherOverview.students[0].homeworkLessonCount, 0);
   assert.equal(teacherOverview.students[0].videoCount, 0);
   assert.equal(teacherOverview.students[0].messageCount, 0);

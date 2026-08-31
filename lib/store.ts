@@ -174,6 +174,7 @@ function mapStudent(row: Record<string, unknown>): Student {
     score: String(row.score),
     overallScore: row.overall_score ? String(row.overall_score) : null,
     programType: normalizeProgramType(String(row.program_type ?? "")),
+    warZone: row.war_zone ? String(row.war_zone) : "",
     admission: String(row.admission),
     className,
     detail: String(row.detail),
@@ -509,6 +510,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
     const homeworkLessonCount = row.homeworkLessonCount ?? 0;
     const videoCount = row.videoCount ?? 0;
     const messageCount = row.messageCount ?? 0;
+    const warZone = String(row.warZone ?? "").trim();
 
     if (!hasDatabase()) {
       const existing = memory.students.find(
@@ -523,6 +525,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
           homeworkLessonCount,
           videoCount,
           messageCount,
+          warZone,
           ...admission,
           updatedAt: nowText()
         });
@@ -540,6 +543,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
           queryCount: 0,
           lastQuery: null,
           preferredCourseTime: null,
+          warZone,
           homeworkLessonCount,
           videoCount,
           messageCount,
@@ -568,15 +572,16 @@ export async function importStudents(rows: SheetStudentRow[]) {
       )) as unknown as Array<{ id: string }>;
       if (existing[0]) {
         await sql.query(
-          `UPDATE students SET student_name=$2, score=$3, overall_score=$4, program_type=$5, admission=$6,
-             class_name=$7, detail=$8, advice=$9, homework_lesson_count=$10, video_count=$11,
-             message_count=$12, updated_at=now() WHERE id=$1`,
+          `UPDATE students SET student_name=$2, score=$3, overall_score=$4, program_type=$5, war_zone=$6, admission=$7,
+             class_name=$8, detail=$9, advice=$10, homework_lesson_count=$11, video_count=$12,
+             message_count=$13, updated_at=now() WHERE id=$1`,
           [
             existing[0].id,
             row.studentName,
             row.score,
             overallScore,
             programType,
+            warZone,
             admission.admission,
             admission.className,
             admission.detail,
@@ -602,15 +607,16 @@ export async function importStudents(rows: SheetStudentRow[]) {
 
       if (existing[0]) {
         await sql.query(
-          `UPDATE students SET student_name=$2, score=$3, overall_score=$4, program_type=$5, admission=$6,
-             class_name=$7, detail=$8, advice=$9, homework_lesson_count=$10, video_count=$11,
-             message_count=$12, updated_at=now() WHERE id=$1`,
+          `UPDATE students SET student_name=$2, score=$3, overall_score=$4, program_type=$5, war_zone=$6, admission=$7,
+             class_name=$8, detail=$9, advice=$10, homework_lesson_count=$11, video_count=$12,
+             message_count=$13, updated_at=now() WHERE id=$1`,
           [
             existing[0].id,
             row.studentName,
             row.score,
             overallScore,
             programType,
+            warZone,
             admission.admission,
             admission.className,
             admission.detail,
@@ -624,9 +630,9 @@ export async function importStudents(rows: SheetStudentRow[]) {
       } else {
         await sql.query(
           `INSERT INTO students (
-             id, student_name, normalized_name, teacher_name, score, overall_score, program_type, admission, class_name,
+             id, student_name, normalized_name, teacher_name, score, overall_score, program_type, war_zone, admission, class_name,
              detail, advice, homework_lesson_count, video_count, message_count
-           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
           [
             randomUUID(),
             row.studentName,
@@ -635,6 +641,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
             row.score,
             overallScore,
             programType,
+            warZone,
             admission.admission,
             admission.className,
             admission.detail,
@@ -651,12 +658,13 @@ export async function importStudents(rows: SheetStudentRow[]) {
 
     const result = (await sql.query(
       `INSERT INTO students (
-         id, student_name, normalized_name, teacher_name, score, overall_score, program_type, admission, class_name,
+         id, student_name, normalized_name, teacher_name, score, overall_score, program_type, war_zone, admission, class_name,
          detail, advice, homework_lesson_count, video_count, message_count
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        ON CONFLICT (normalized_name, teacher_name) DO UPDATE SET
          student_name = EXCLUDED.student_name, score = EXCLUDED.score, overall_score = EXCLUDED.overall_score,
          program_type = EXCLUDED.program_type,
+         war_zone = EXCLUDED.war_zone,
          admission = EXCLUDED.admission, class_name = EXCLUDED.class_name,
          detail = EXCLUDED.detail, advice = EXCLUDED.advice,
          homework_lesson_count = EXCLUDED.homework_lesson_count,
@@ -672,6 +680,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
         row.score,
         overallScore,
         programType,
+        warZone,
         admission.admission,
         admission.className,
         admission.detail,

@@ -137,6 +137,7 @@ async function initializePostgresSchema(sql: SqlClient) {
       score varchar(30) NOT NULL,
       overall_score varchar(30),
       program_type varchar(20) NOT NULL DEFAULT '英才特训营',
+      war_zone varchar(50),
       admission varchar(20) NOT NULL,
       class_name varchar(50) NOT NULL,
       detail text NOT NULL,
@@ -158,6 +159,7 @@ async function initializePostgresSchema(sql: SqlClient) {
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS preferred_course_time varchar(80)");
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS program_type varchar(20) NOT NULL DEFAULT '英才特训营'");
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS overall_score varchar(30)");
+  await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS war_zone varchar(50)");
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS homework_lesson_count integer NOT NULL DEFAULT 0");
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS video_count integer NOT NULL DEFAULT 0");
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS message_count integer NOT NULL DEFAULT 0");
@@ -217,6 +219,7 @@ async function initializeMySqlSchema(sql: SqlClient) {
       score varchar(30) NOT NULL,
       overall_score varchar(30),
       program_type varchar(20) NOT NULL DEFAULT '英才特训营',
+      war_zone varchar(50),
       admission varchar(20) NOT NULL,
       class_name varchar(50) NOT NULL,
       detail text NOT NULL,
@@ -240,6 +243,7 @@ async function initializeMySqlSchema(sql: SqlClient) {
   await addMySqlColumnIfMissing(sql, "students", "preferred_course_time", "varchar(80)");
   await addMySqlColumnIfMissing(sql, "students", "program_type", "varchar(20) NOT NULL DEFAULT '英才特训营'");
   await addMySqlColumnIfMissing(sql, "students", "overall_score", "varchar(30)");
+  await addMySqlColumnIfMissing(sql, "students", "war_zone", "varchar(50)");
   await addMySqlColumnIfMissing(sql, "students", "homework_lesson_count", "int NOT NULL DEFAULT 0");
   await addMySqlColumnIfMissing(sql, "students", "video_count", "int NOT NULL DEFAULT 0");
   await addMySqlColumnIfMissing(sql, "students", "message_count", "int NOT NULL DEFAULT 0");
