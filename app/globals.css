@@ -1904,6 +1904,59 @@ th input[type="checkbox"] {
   margin-top: 18px;
 }
 
+.metric-overview {
+  margin-top: 18px;
+}
+
+.metric-overview-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.metric-overview-head h3,
+.metric-overview-head p {
+  margin: 0;
+}
+
+.metric-overview-head h3 {
+  color: #1f2937;
+  font-size: 18px;
+}
+
+.metric-overview-head p {
+  margin-top: 5px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.metric-zone-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.metric-zone-filter span {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.metric-zone-filter select {
+  min-height: 38px;
+  min-width: 150px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 30px 8px 10px;
+  background: #fff;
+  color: #1f2937;
+  font-weight: 700;
+}
+
 .metric-grid {
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
 }
@@ -2005,6 +2058,15 @@ th {
 @media (max-width: 760px) {
   .console-shell {
     padding: 12px;
+  }
+
+  .metric-overview-head {
+    display: grid;
+    align-items: start;
+  }
+
+  .metric-zone-filter {
+    justify-self: start;
   }
 
   .metric-grid,

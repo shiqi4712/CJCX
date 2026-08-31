@@ -217,6 +217,15 @@ function Dashboard({
         }))
     ];
   }, [studentRows]);
+  const selectedWarZoneRows = useMemo(
+    () =>
+      studentRows.filter(
+        (student) =>
+          studentWarZone === "all" ||
+          (studentWarZone === EMPTY_WAR_ZONE ? !student.warZone.trim() : student.warZone === studentWarZone)
+      ),
+    [studentRows, studentWarZone]
+  );
   const filteredStudentRows = useMemo(
     () =>
       studentRows.filter((student) => {
@@ -234,8 +243,19 @@ function Dashboard({
     const start = (studentPage - 1) * STUDENT_PAGE_SIZE;
     return filteredStudentRows.slice(start, start + STUDENT_PAGE_SIZE);
   }, [filteredStudentRows, studentPage]);
-  const totalQueryCount = studentRows.reduce((sum, student) => sum + student.queryCount, 0);
-  const queryRate = statsPercent(studentRows.filter((student) => student.queried).length, studentRows.length);
+  const totalQueryCount = selectedWarZoneRows.reduce((sum, student) => sum + student.queryCount, 0);
+  const queryRate = statsPercent(
+    selectedWarZoneRows.filter((student) => student.queried).length,
+    selectedWarZoneRows.length
+  );
+  const selectedStats = {
+    studentCount: selectedWarZoneRows.length,
+    admittedCount: selectedWarZoneRows.filter((student) => student.admission === "已录取").length,
+    queriedCount: selectedWarZoneRows.filter((student) => student.queried).length,
+    pendingCount: selectedWarZoneRows.filter((student) => !student.queried).length
+  };
+  const selectedWarZoneLabel =
+    warZoneOptions.find((option) => option.value === studentWarZone)?.label ?? "全部战区";
 
   const refreshPendingReviewLogs = useCallback(async (page: number) => {
     setPendingReviewLoading(true);
@@ -604,15 +624,35 @@ function Dashboard({
         </section>
       ) : null}
 
-      <div className="metric-grid">
-        <Metric label="学生总数" value={stats?.studentCount ?? 0} />
+      <section className="metric-overview">
+        <div className="metric-overview-head">
+          <div>
+            <h3>战区数据总览</h3>
+            <p>{selectedWarZoneLabel} · 指标与下方学生明细同步</p>
+          </div>
+          {isAdmin ? (
+            <label className="metric-zone-filter">
+              <span>选择战区</span>
+              <select value={studentWarZone} onChange={(event) => setStudentWarZone(event.target.value)}>
+                {warZoneOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}（{option.count}人）
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
+        <div className="metric-grid">
+        <Metric label="学生总数" value={selectedStats.studentCount} />
         {isAdmin ? <Metric label="老师数量" value={stats?.teacherCount ?? 0} /> : null}
-        <Metric label="已录取" value={stats?.admittedCount ?? 0} />
-        <Metric label="已查询" value={stats?.queriedCount ?? 0} />
+        <Metric label="已录取" value={selectedStats.admittedCount} />
+        <Metric label="已查询" value={selectedStats.queriedCount} />
         <Metric label={isAdmin ? "当前查询率" : "查询率"} value={queryRate} />
         <Metric label="查询次数" value={totalQueryCount} />
-        {isAdmin ? <Metric label="未查询" value={stats?.pendingCount ?? 0} /> : null}
-      </div>
+        {isAdmin ? <Metric label="未查询" value={selectedStats.pendingCount} /> : null}
+        </div>
+      </section>
 
       {isAdmin ? (
         <div className="tool-grid">
