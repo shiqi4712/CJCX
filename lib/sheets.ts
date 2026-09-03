@@ -5,6 +5,16 @@ import type { SheetStudentRow, SheetTeacherRow } from "./types";
 type RecordRow = Record<string, unknown>;
 type CellValue = string | number | boolean | null;
 
+export function isSheetFile(value: unknown): value is File {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { name?: unknown; size?: unknown; arrayBuffer?: unknown };
+  return (
+    typeof candidate.name === "string" &&
+    typeof candidate.size === "number" &&
+    typeof candidate.arrayBuffer === "function"
+  );
+}
+
 export async function parseSheetFile(file: File): Promise<RecordRow[]> {
   const buffer = Buffer.from(await file.arrayBuffer());
   const lowerName = file.name.toLowerCase();
