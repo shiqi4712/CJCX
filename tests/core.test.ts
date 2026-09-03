@@ -295,6 +295,23 @@ test("teacher can reset assigned student query eligibility", async () => {
   }
 });
 
+test("teacher batch import deduplicates rows and preserves administrator accounts", async () => {
+  resetMemoryStoreForTests();
+  const rows = Array.from({ length: 24 }, (_, index) => ({
+    teacherName: `批量老师${index + 1}`,
+    password: "abc123"
+  }));
+  rows.push({ teacherName: "批量老师1", password: "final123" });
+  rows.push({ teacherName: "shiqi", password: "replace123" });
+
+  const result = await importTeachers(rows);
+  assert.equal(result.importedCount, 24);
+  assert.equal(result.updatedCount, 1);
+  assert.equal(await login("批量老师1", "final123").then(Boolean), true);
+  assert.equal(await login("shiqi", "shiqi123").then((user) => user?.role), "admin");
+  assert.equal(await login("shiqi", "replace123").then(Boolean), false);
+});
+
 test("pending review visits remain available after release and paginate by ten", async () => {
   resetMemoryStoreForTests();
   await importTeachers([{ teacherName: "审核老师", password: "abc123" }]);

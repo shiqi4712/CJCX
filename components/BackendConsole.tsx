@@ -72,11 +72,13 @@ export function BackendConsole({ title, defaultAccount }: { title: string; defau
   const refreshOverview = useCallback(async () => {
     const response = await fetch("/api/admin/overview");
     if (!response.ok) {
-      setOverview(null);
-      setLoginState(null);
+      if (response.status === 401 || response.status === 403) {
+        setOverview(null);
+        setLoginState(null);
+      }
       return;
     }
-    const data = (await response.json()) as Overview;
+    const data = (await readResponseJson(response)) as Overview;
     setOverview(data);
     if (data.session) {
       setLoginState(data.session);
@@ -93,7 +95,7 @@ export function BackendConsole({ title, defaultAccount }: { title: string; defau
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ account, password })
     });
-    const data = await response.json();
+    const data = await readResponseJson(response);
     setLoading(false);
 
     if (!response.ok) {
@@ -101,7 +103,7 @@ export function BackendConsole({ title, defaultAccount }: { title: string; defau
       return;
     }
 
-    setLoginState(data);
+    setLoginState(data as LoginState);
     await refreshOverview();
   }
 
@@ -323,14 +325,18 @@ function Dashboard({
     const formData = new FormData();
     formData.append("file", file);
     const response = await fetch(endpoint, { method: "POST", body: formData });
-    const data = await response.json();
+    const data = await readResponseJson(response);
 
     if (!response.ok) {
       setStatus(data.message ?? `${label}导入失败`);
       return;
     }
 
-    setStatus(`${label}导入完成：新增 ${data.importedCount} 条，更新 ${data.updatedCount ?? 0} 条`);
+    setStatus(
+      `${label}导入完成：新增 ${data.importedCount} 条，更新 ${data.updatedCount ?? 0} 条${
+        data.archiveWarning ? `；${data.archiveWarning}` : ""
+      }`
+    );
     await refreshOverview();
   }
 
@@ -1076,6 +1082,23 @@ function statsPercent(part: number, total: number) {
 
 function toCsvCell(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
+}
+
+async function readResponseJson(response: Response): Promise<Record<string, any>> {
+  const text = await response.text();
+  if (text) {
+    try {
+      return JSON.parse(text) as Record<string, any>;
+    } catch {
+      // Reverse proxies commonly return an HTML error page for 502/504 responses.
+    }
+  }
+  return {
+    message:
+      response.status >= 500
+        ? "服务器暂时繁忙或请求超时，请稍后重试"
+        : `请求失败（${response.status}）`
+  };
 }
 
 function formatDateTime(value: string | null) {

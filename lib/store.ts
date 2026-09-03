@@ -698,68 +698,121 @@ export async function importStudents(rows: SheetStudentRow[]) {
 
 export async function importTeachers(rows: SheetTeacherRow[]) {
   await ensureReady();
+  const uniqueRows = Array.from(
+    rows.reduce((byName, row) => byName.set(row.teacherName, row), new Map<string, SheetTeacherRow>()).values()
+  );
+  const preparedRows = await mapWithConcurrency(uniqueRows, 4, async (row) => ({
+    ...row,
+    id: randomUUID(),
+    passwordHash: await hashPassword(row.password || "bcm666")
+  }));
   let importedCount = 0;
   let updatedCount = 0;
 
-  for (const row of rows) {
-    const passwordHash = await hashPassword(row.password || "bcm666");
-    if (!hasDatabase()) {
+  if (!hasDatabase()) {
+    for (const row of preparedRows) {
       const existing = memory.teachers.find((teacher) => teacher.teacherName === row.teacherName);
       if (existing) {
-        existing.passwordHash = passwordHash;
-        existing.active = true;
+        if (existing.role === "teacher") {
+          existing.passwordHash = row.passwordHash;
+          existing.active = true;
+        }
         updatedCount += 1;
       } else {
         memory.teachers.push({
-          id: randomUUID(),
+          id: row.id,
           teacherName: row.teacherName,
-          passwordHash,
+          passwordHash: row.passwordHash,
           role: "teacher",
           active: true,
           createdAt: nowText()
         });
         importedCount += 1;
       }
-      continue;
     }
-
+  } else {
     const sql = getSql();
-    if (sql.dialect === "mysql") {
-      const existing = (await sql.query("SELECT role FROM teacher_accounts WHERE teacher_name = $1 LIMIT 1", [
-        row.teacherName
-      ])) as unknown as Array<{ role: Role }>;
-      if (existing[0]) {
-        if (existing[0].role === "teacher") {
-          await sql.query(
-            "UPDATE teacher_accounts SET password_hash = $2, active = true WHERE teacher_name = $1 AND role = 'teacher'",
-            [row.teacherName, passwordHash]
-          );
-        }
+    const existingRows = await getExistingTeacherRoles(sql, preparedRows.map((row) => row.teacherName));
+    const existingRoles = new Map(
+      existingRows.map((row) => [String(row.teacher_name), String(row.role) as Role])
+    );
+    const writableRows = preparedRows.filter((row) => existingRoles.get(row.teacherName) !== "admin");
+
+    for (const row of preparedRows) {
+      if (existingRoles.has(row.teacherName)) {
         updatedCount += 1;
       } else {
-        await sql.query(
-          `INSERT INTO teacher_accounts (id, teacher_name, password_hash, role, active)
-           VALUES ($1, $2, $3, 'teacher', true)`,
-          [randomUUID(), row.teacherName, passwordHash]
-        );
         importedCount += 1;
       }
-      continue;
     }
 
-    const result = (await sql.query(
-      `INSERT INTO teacher_accounts (id, teacher_name, password_hash, role, active)
-       VALUES ($1, $2, $3, 'teacher', true)
-       ON CONFLICT (teacher_name) DO UPDATE SET password_hash = EXCLUDED.password_hash, active = true
-       WHERE teacher_accounts.role = 'teacher'
-       RETURNING (xmax = 0) AS inserted`,
-      [randomUUID(), row.teacherName, passwordHash]
-    )) as unknown as Array<{ inserted: boolean }>;
-    result[0]?.inserted ? (importedCount += 1) : (updatedCount += 1);
+    for (let start = 0; start < writableRows.length; start += 100) {
+      await upsertTeacherBatch(sql, writableRows.slice(start, start + 100));
+    }
   }
 
   const totalCount = (await getOverview("admin")).teachers.filter((teacher) => teacher.role === "teacher").length;
   return { importedCount, updatedCount, totalCount };
+}
+
+async function getExistingTeacherRoles(sql: ReturnType<typeof getSql>, teacherNames: string[]) {
+  if (teacherNames.length === 0) return [];
+  const placeholders = teacherNames.map((_, index) => `$${index + 1}`).join(",");
+  return (await sql.query(
+    `SELECT teacher_name, role FROM teacher_accounts WHERE teacher_name IN (${placeholders})`,
+    teacherNames
+  )) as unknown as Array<{ teacher_name: string; role: Role }>;
+}
+
+async function upsertTeacherBatch(
+  sql: ReturnType<typeof getSql>,
+  rows: Array<SheetTeacherRow & { id: string; passwordHash: string }>
+) {
+  if (rows.length === 0) return;
+  const values: unknown[] = [];
+  const tuples = rows.map((row) => {
+    const offset = values.length;
+    values.push(row.id, row.teacherName, row.passwordHash);
+    return `($${offset + 1}, $${offset + 2}, $${offset + 3}, 'teacher', true)`;
+  });
+
+  if (sql.dialect === "mysql") {
+    await sql.query(
+      `INSERT INTO teacher_accounts (id, teacher_name, password_hash, role, active)
+       VALUES ${tuples.join(",")}
+       ON DUPLICATE KEY UPDATE
+         password_hash = IF(role = 'teacher', VALUES(password_hash), password_hash),
+         active = IF(role = 'teacher', true, active)`,
+      values
+    );
+    return;
+  }
+
+  await sql.query(
+    `INSERT INTO teacher_accounts (id, teacher_name, password_hash, role, active)
+     VALUES ${tuples.join(",")}
+     ON CONFLICT (teacher_name) DO UPDATE SET password_hash = EXCLUDED.password_hash, active = true
+     WHERE teacher_accounts.role = 'teacher'`,
+    values
+  );
+}
+
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, mapper: (item: T) => Promise<R>) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        results[index] = await mapper(items[index]);
+      }
+    })
+  );
+
+  return results;
 }
 
 export async function updateStudent(

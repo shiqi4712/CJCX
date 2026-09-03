@@ -36,7 +36,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "老师密码长度必须为 6-128 位" }, { status: 400 });
   }
 
-  const result = await importTeachers(rows);
-  await archiveUploadedFile("imports/teachers", file);
-  return NextResponse.json(result);
+  try {
+    const result = await importTeachers(rows);
+    let archiveWarning: string | undefined;
+    try {
+      await archiveUploadedFile("imports/teachers", file);
+    } catch (error) {
+      console.error("Failed to archive teacher import", error);
+      archiveWarning = "老师账号已导入，但原文件备份失败";
+    }
+    return NextResponse.json({ ...result, archiveWarning });
+  } catch (error) {
+    console.error("Teacher import failed", error);
+    return NextResponse.json(
+      { message: error instanceof Error ? `老师账号导入失败：${error.message}` : "老师账号导入失败" },
+      { status: 500 }
+    );
+  }
 }
