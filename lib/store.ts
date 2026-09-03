@@ -751,7 +751,9 @@ export async function importTeachers(rows: SheetTeacherRow[]) {
     }
   }
 
-  const totalCount = (await getOverview("admin")).teachers.filter((teacher) => teacher.role === "teacher").length;
+  const totalCount = hasDatabase()
+    ? Number((await getSql().query("SELECT COUNT(*) AS total_count FROM teacher_accounts WHERE role = 'teacher'"))[0]?.total_count ?? 0)
+    : memory.teachers.filter((teacher) => teacher.role === "teacher").length;
   return { importedCount, updatedCount, totalCount };
 }
 
