@@ -22,6 +22,7 @@ import {
   importStudents,
   importTeachers,
   login,
+  createCoursePlanLink,
   getPendingReviewLogs,
   recordPendingReviewQuery,
   queryStudentByName,
@@ -31,6 +32,7 @@ import {
   resetStudentQuery,
   resetMemoryStoreForTests
 } from "../lib/store";
+import { buildCoursePlanData, getCoursePlanLine, normalizeCoursePlanLine } from "../lib/course-plan-config";
 
 process.env.SESSION_SECRET = "test-session-secret-with-sufficient-entropy";
 delete process.env.DATABASE_URL;
@@ -99,9 +101,9 @@ test("CSV import supports quoted fields, teacher assignment, program type and wa
   const csv = new File(
     [
       [
-        "学生姓名,成绩,老师姓名,班级类型,战区,提交作业课次数,录制视频次数,学生消息数",
-        '"张小明",A,王老师,育才班,华东战区,3,1,45',
-        '"李小明",A+,李老师,特训营,华南战区,0,2,8'
+        "学生姓名,成绩,老师姓名,班级类型,课线,战区,作业次数,视频次数,学生消息数",
+        '"张小明",A,王老师,育才班,Python,华东战区,3,1,45',
+        '"李小明",A+,李老师,特训营,小火箭,华南战区,0,2,8'
       ].join("\n")
     ],
     "students.csv",
@@ -117,6 +119,7 @@ test("CSV import supports quoted fields, teacher assignment, program type and wa
       overallScore: null,
       teacherName: "王老师",
       programType: "育才班",
+      courseLine: "python",
       warZone: "华东战区",
       homeworkLessonCount: 3,
       videoCount: 1,
@@ -128,6 +131,7 @@ test("CSV import supports quoted fields, teacher assignment, program type and wa
       overallScore: null,
       teacherName: "李老师",
       programType: "特训营",
+      courseLine: "rocket",
       warZone: "华南战区",
       homeworkLessonCount: 0,
       videoCount: 2,
@@ -157,6 +161,7 @@ test("student import accepts flexible behavior headers and values", async () => 
       overallScore: null,
       teacherName: "王老师",
       programType: "科特班",
+      courseLine: "moon",
       homeworkLessonCount: 3,
       videoCount: 1,
       messageCount: 45
@@ -194,6 +199,20 @@ test("duplicate imports update records and teachers only see assigned students",
   assert.equal(await login("jiangxiao", "df666").then((user) => user?.role), "admin");
   assert.equal(await login("shiqi", "shiqi123").then((user) => user?.role), "admin");
   assert.equal(await login("yangxu", "cz666").then((user) => user?.role), "admin");
+  assert.equal(await login("huanglei", "huanglei666").then((user) => user?.role), "admin");
+});
+
+test("student course-line import normalizes supported values and rejects unknown lines", () => {
+  const rows = toStudentRows([
+    { 学生姓名: "课线Python", 成绩: "A+", 课线: "PYTHON" },
+    { 学生姓名: "课线探月", 成绩: "A+", 课程线: "探月" },
+    { 学生姓名: "课线火箭", 成绩: "A+", 课程课线: "小火箭" }
+  ]);
+  assert.deepEqual(rows.map((row) => row.courseLine), ["python", "moon", "rocket"]);
+  assert.throws(
+    () => toStudentRows([{ 学生姓名: "未知课线", 成绩: "A+", 课线: "Java" }]),
+    /请填写 Python、探月或小火箭/
+  );
 });
 
 test("student program type controls admitted class display", async () => {
@@ -415,6 +434,43 @@ test("single student import can add one assigned student", async () => {
   assert.equal(overview.students[0].homeworkLessonCount, 2);
   assert.equal(overview.students[0].videoCount, 1);
   assert.equal(overview.students[0].messageCount, 31);
+});
+
+test("course plan links are generated and filtered by teacher", async () => {
+  resetMemoryStoreForTests();
+  await importTeachers([
+    { teacherName: "方案王老师", password: "abc123" },
+    { teacherName: "方案李老师", password: "abc123" }
+  ]);
+  await importStudents([
+    { studentName: "方案学生一", score: "A+", teacherName: "方案王老师", programType: "科特班", courseLine: "python" },
+    { studentName: "方案学生二", score: "A", teacherName: "方案李老师", programType: "育才班", courseLine: "rocket" }
+  ]);
+
+  const teacherOverview = await getOverview("teacher", "方案王老师");
+  const student = teacherOverview.students[0];
+  assert.equal(student.courseLine, "python");
+  assert.equal(normalizeCoursePlanLine(student.courseLine), "python");
+  assert.equal(buildCoursePlanData({ student: student.studentName, courseLine: "python", targetClass: student.className }).targetClass, "科特班");
+  assert.equal(getCoursePlanLine("python").goalImage, "/images/course-plan/python-goal.jpg");
+  assert.equal(getCoursePlanLine("moon").planDetailImage, "/images/course-plan/moon-plan-detail.jpg");
+  assert.equal(getCoursePlanLine("rocket").scheduleImage, "/images/course-plan/rocket-schedule.png");
+
+  const link = await createCoursePlanLink(
+    {
+      studentId: student.id,
+      courseLine: "python",
+      targetClass: "科特班",
+      planUrl: "https://example.test/course-plan#p=abc"
+    },
+    "teacher",
+    "方案王老师"
+  );
+  assert.equal(link?.studentName, "方案学生一");
+
+  assert.equal((await getOverview("teacher", "方案王老师")).coursePlanLinks.length, 1);
+  assert.equal((await getOverview("teacher", "方案李老师")).coursePlanLinks.length, 0);
+  assert.equal((await getOverview("admin")).coursePlanLinks.length, 1);
 });
 
 test("course-plan export creates one personalized PDF per student", async () => {

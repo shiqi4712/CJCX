@@ -1,6 +1,12 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  COURSE_PLAN_LINES,
+  normalizeCoursePlanLine,
+  type CoursePlanLineId,
+  type CoursePlanPayload
+} from "@/lib/course-plan-config";
 
 const STUDENT_PAGE_SIZE = 20;
 const TEACHER_PAGE_SIZE = 10;
@@ -22,6 +28,7 @@ type Overview = {
     score: string;
     overallScore: string | null;
     programType: string;
+    courseLine: CoursePlanLineId;
     warZone: string;
     className: string;
     admission: string;
@@ -49,6 +56,17 @@ type Overview = {
     resultStatus: "success" | "not_found" | "pending_review";
     queriedAt: string;
   }>;
+  coursePlanLinks: Array<{
+    id: string;
+    studentId: string;
+    studentName: string;
+    teacherName: string;
+    courseLine: string;
+    targetClass: string;
+    planUrl: string;
+    generatedBy: string;
+    generatedAt: string;
+  }>;
   settings: {
     resultOpenAt: string | null;
   };
@@ -61,13 +79,22 @@ type LoginState = {
   role: "admin" | "teacher";
 };
 
-export function BackendConsole({ title, defaultAccount }: { title: string; defaultAccount: string }) {
-  const [account, setAccount] = useState("");
-  const [password, setPassword] = useState("");
+export function BackendConsole({
+  title,
+  defaultAccount,
+  defaultPassword = ""
+}: {
+  title: string;
+  defaultAccount: string;
+  defaultPassword?: string;
+}) {
+  const [account, setAccount] = useState(defaultAccount);
+  const [password, setPassword] = useState(defaultPassword);
   const [loginState, setLoginState] = useState<LoginState | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const autoLoginAttempted = useRef(false);
 
   const refreshOverview = useCallback(async () => {
     const response = await fetch("/api/admin/overview");
@@ -85,27 +112,54 @@ export function BackendConsole({ title, defaultAccount }: { title: string; defau
     }
   }, []);
 
+  const loginWithCredentials = useCallback(
+    async (loginAccount: string, loginPassword: string) => {
+      setLoading(true);
+      setMessage("");
+
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account: loginAccount, password: loginPassword })
+      });
+      const data = await readResponseJson(response);
+      setLoading(false);
+
+      if (!response.ok) {
+        setMessage(data.message ?? "登录失败");
+        return;
+      }
+
+      setLoginState(data as LoginState);
+      await refreshOverview();
+    },
+    [refreshOverview]
+  );
+
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setLoading(true);
-    setMessage("");
-
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ account, password })
-    });
-    const data = await readResponseJson(response);
-    setLoading(false);
-
-    if (!response.ok) {
-      setMessage(data.message ?? "登录失败");
-      return;
-    }
-
-    setLoginState(data as LoginState);
-    await refreshOverview();
+    await loginWithCredentials(account, password);
   }
+
+  useEffect(() => {
+    if (loginState || autoLoginAttempted.current || typeof window === "undefined") return;
+    if (!["127.0.0.1", "localhost"].includes(window.location.hostname)) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const queryAccount = params.get("backend-account")?.trim() ?? "";
+    const queryPassword = params.get("backend-password") ?? "";
+    const loginAccount = queryAccount || defaultAccount;
+    const loginPassword = queryPassword || defaultPassword;
+
+    if (!loginAccount || !loginPassword) return;
+    autoLoginAttempted.current = true;
+    setAccount(loginAccount);
+    void loginWithCredentials(loginAccount, loginPassword).then(() => {
+      if (queryAccount || queryPassword) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    });
+  }, [defaultAccount, defaultPassword, loginState, loginWithCredentials]);
 
   useEffect(() => {
     void refreshOverview();
@@ -176,10 +230,12 @@ function Dashboard({
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentScore, setNewStudentScore] = useState("");
   const [newStudentProgramType, setNewStudentProgramType] = useState("");
+  const [newStudentCourseLine, setNewStudentCourseLine] = useState<CoursePlanLineId>("moon");
   const [newStudentHomeworkLessonCount, setNewStudentHomeworkLessonCount] = useState("");
   const [newStudentVideoCount, setNewStudentVideoCount] = useState("");
   const [newStudentMessageCount, setNewStudentMessageCount] = useState("");
   const [resultOpenAtInput, setResultOpenAtInput] = useState("");
+  const [planGenerating, setPlanGenerating] = useState(false);
   const [pendingReviewLogs, setPendingReviewLogs] = useState<Overview["queryLogs"]>([]);
   const [pendingReviewPage, setPendingReviewPage] = useState(1);
   const [pendingReviewTotal, setPendingReviewTotal] = useState(0);
@@ -230,15 +286,11 @@ function Dashboard({
   );
   const filteredStudentRows = useMemo(
     () =>
-      studentRows.filter((student) => {
-        const matchesSearch =
-          !normalizedStudentSearch || student.studentName.toLowerCase().includes(normalizedStudentSearch);
-        const matchesWarZone =
-          studentWarZone === "all" ||
-          (studentWarZone === EMPTY_WAR_ZONE ? !student.warZone.trim() : student.warZone === studentWarZone);
-        return matchesSearch && matchesWarZone;
-      }),
-    [normalizedStudentSearch, studentRows, studentWarZone]
+      selectedWarZoneRows.filter(
+        (student) =>
+          !normalizedStudentSearch || student.studentName.toLowerCase().includes(normalizedStudentSearch)
+      ),
+    [normalizedStudentSearch, selectedWarZoneRows]
   );
   const studentPageCount = Math.max(1, Math.ceil(filteredStudentRows.length / STUDENT_PAGE_SIZE));
   const visibleStudentRows = useMemo(() => {
@@ -258,6 +310,7 @@ function Dashboard({
   };
   const selectedWarZoneLabel =
     warZoneOptions.find((option) => option.value === studentWarZone)?.label ?? "全部战区";
+  const coursePlanLinkRows = overview?.coursePlanLinks ?? [];
 
   const refreshPendingReviewLogs = useCallback(async (page: number) => {
     setPendingReviewLoading(true);
@@ -333,9 +386,9 @@ function Dashboard({
     }
 
     setStatus(
-      `${label}导入完成：新增 ${data.importedCount} 条，更新 ${data.updatedCount ?? 0} 条${
-        data.archiveWarning ? `；${data.archiveWarning}` : ""
-      }`
+      `${label}导入完成：新增 ${data.importedCount} 条，更新 ${data.updatedCount ?? 0} 条，自动生成方案 ${
+        data.generatedPlanCount ?? 0
+      } 条${data.archiveWarning ? `；${data.archiveWarning}` : ""}`
     );
     await refreshOverview();
   }
@@ -350,13 +403,13 @@ function Dashboard({
     if (!response.ok) {
       setStatus(data.message ?? "操作失败");
       return;
+      }
+      setStatus("操作成功");
+      await refreshOverview();
+      if (method === "DELETE" && endpoint.startsWith("/api/admin/students/")) {
+        await refreshPendingReviewLogs(pendingReviewPage);
+      }
     }
-    setStatus("操作成功");
-    await refreshOverview();
-    if (method === "DELETE" && endpoint.startsWith("/api/admin/students/")) {
-      await refreshPendingReviewLogs(pendingReviewPage);
-    }
-  }
 
   async function addSingleStudent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -374,6 +427,7 @@ function Dashboard({
         studentName,
         score,
         programType: newStudentProgramType,
+        courseLine: newStudentCourseLine,
         homeworkLessonCount: newStudentHomeworkLessonCount,
         videoCount: newStudentVideoCount,
         messageCount: newStudentMessageCount
@@ -388,10 +442,11 @@ function Dashboard({
     setNewStudentName("");
     setNewStudentScore("");
     setNewStudentProgramType("");
+    setNewStudentCourseLine("moon");
     setNewStudentHomeworkLessonCount("");
     setNewStudentVideoCount("");
     setNewStudentMessageCount("");
-    setStatus(`${studentName} 已添加`);
+    setStatus(`${studentName} 已添加，学习方案链接已自动生成`);
     await refreshOverview();
   }
 
@@ -514,14 +569,15 @@ function Dashboard({
       "成绩",
       "综合得分",
       "班级类型",
+      "课线",
       "战区",
       "老师",
       "查询状态",
       "查询次数",
       "最近查询",
       "上课时间",
-      "提交作业课次数",
-      "录制视频次数",
+      "作业次数",
+      "视频次数",
       "学生消息数",
       "录取结果"
     ];
@@ -530,6 +586,7 @@ function Dashboard({
       student.score,
       student.overallScore ?? "",
       student.className,
+      COURSE_PLAN_LINES[student.courseLine].name,
       student.warZone,
       student.teacherName,
       student.queried ? "已查询" : "未查询",
@@ -576,6 +633,79 @@ function Dashboard({
       setStatus(`已导出全部 ${pendingReviewTotal} 条审核期访问记录`);
     } finally {
       setPendingReviewExporting(false);
+    }
+  }
+
+  function buildStudentCoursePlan(student: Overview["students"][number]) {
+    const courseLine = normalizeCoursePlanLine(student.courseLine);
+    const line = COURSE_PLAN_LINES[courseLine];
+    const targetClass = student.className || line.targetClass;
+    const payload: CoursePlanPayload = {
+      studentId: student.id,
+      student: student.studentName,
+      score: student.score,
+      courseLine,
+      targetClass,
+      focus: line.focusDefault,
+      goal: line.goalDefault,
+      preferredCourseTime: student.preferredCourseTime,
+      showPrice: true,
+      price: line.price
+    };
+    return {
+      courseLine,
+      targetClass,
+      planUrl: `${window.location.origin}/course-plan#p=${encodeCoursePlanPayload(payload)}`
+    };
+  }
+
+  function getStudentPlanLink(student: Overview["students"][number]) {
+    return coursePlanLinkRows.find((link) => link.studentId === student.id)?.planUrl ?? "";
+  }
+
+  async function saveCoursePlanLink(input: {
+    studentId: string;
+    courseLine: CoursePlanLineId;
+    targetClass: string;
+    planUrl: string;
+  }) {
+    const response = await fetch("/api/teacher/course-plans/links", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message ?? "方案链接生成失败");
+    }
+    return data as { planUrl?: string };
+  }
+
+  async function ensureStudentPlanLink(student: Overview["students"][number]) {
+    const existingPlanUrl = getStudentPlanLink(student);
+    if (existingPlanUrl) return existingPlanUrl;
+
+    const built = buildStudentCoursePlan(student);
+    const data = await saveCoursePlanLink({
+      studentId: student.id,
+      courseLine: built.courseLine,
+      targetClass: built.targetClass,
+      planUrl: built.planUrl
+    });
+    return data.planUrl ?? built.planUrl;
+  }
+
+  async function copyStudentPlanLink(student: Overview["students"][number]) {
+    setPlanGenerating(true);
+    try {
+      const savedUrl = await ensureStudentPlanLink(student);
+      await navigator.clipboard.writeText(savedUrl);
+      setStatus(`${student.studentName} 的方案链接已复制`);
+      await refreshOverview();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "方案链接复制失败");
+    } finally {
+      setPlanGenerating(false);
     }
   }
 
@@ -665,7 +795,7 @@ function Dashboard({
           <section className="tool-panel">
             <h3>学生成绩信息</h3>
             <p>
-              支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、班级类型、战区、提交作业课次数、录制视频次数、学生消息数。综合得分由系统自动生成；班级类型可填：英才特训营、科特班、育才班、特训营。
+              支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、班级类型、课线、战区、作业次数、视频次数、学生消息数。课线填写 Python、探月或小火箭，用于匹配专属规划、规划明细和时间表物料；综合得分由系统自动生成。班级类型可填：英才特训营、科特班、育才班、特训营；旧表未填写课线时默认使用探月。
             </p>
             <input ref={studentImportRef} type="file" accept=".xlsx,.csv" />
             <button onClick={() => uploadFile("/api/admin/students/import", studentImportRef.current, "学生成绩")}>
@@ -703,6 +833,14 @@ function Dashboard({
               onChange={(event) => setNewStudentProgramType(event.target.value)}
               placeholder="如 英才班 / 特训营"
             />
+          </label>
+          <label>
+            <span>课线</span>
+            <select value={newStudentCourseLine} onChange={(event) => setNewStudentCourseLine(event.target.value as CoursePlanLineId)}>
+              <option value="python">Python</option>
+              <option value="moon">探月</option>
+              <option value="rocket">小火箭</option>
+            </select>
           </label>
           <label>
             <span>提交作业课次数</span>
@@ -915,7 +1053,7 @@ function Dashboard({
       <section className="table-panel">
         <div className="table-panel-head">
           <div>
-            <h3>学生查询状态</h3>
+            <h3>学生名单与方案链接</h3>
             <div className="student-filters">
               <label className="student-search">
                 <span>搜索学生</span>
@@ -925,25 +1063,14 @@ function Dashboard({
                   placeholder="输入学生姓名"
                 />
               </label>
-              {isAdmin ? (
-                <label className="student-filter">
-                  <span>按战区</span>
-                  <select value={studentWarZone} onChange={(event) => setStudentWarZone(event.target.value)}>
-                    {warZoneOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}（{option.count}人）
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
             </div>
           </div>
-          {isAdmin ? (
-            <div className="table-actions">
-              <span className="table-count">
-                共 {filteredStudentRows.length} 人，第 {studentPage} / {studentPageCount} 页
-              </span>
+          <div className="table-actions">
+            <span className="table-count">
+              共 {filteredStudentRows.length} 人，第 {studentPage} / {studentPageCount} 页
+            </span>
+            {isAdmin ? (
+              <>
               <button onClick={exportQueryStatus}>导出查询情况</button>
               <button
                 disabled={studentRows.length === 0}
@@ -951,8 +1078,9 @@ function Dashboard({
               >
                 删除全部学生名单
               </button>
-            </div>
-          ) : null}
+              </>
+            ) : null}
+          </div>
         </div>
         <div className="table-wrap">
           <table>
@@ -962,6 +1090,7 @@ function Dashboard({
                 <th>成绩</th>
                 <th>综合得分</th>
                 <th>班级类型</th>
+                <th>课线</th>
                 <th>战区</th>
                 <th>老师</th>
                 <th>上课时间</th>
@@ -971,6 +1100,7 @@ function Dashboard({
                 <th>录取结果</th>
                 <th>查询状态</th>
                 <th>最近查询</th>
+                <th>方案链接</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -981,6 +1111,7 @@ function Dashboard({
                   <td>{student.score}</td>
                   <td>{student.overallScore ?? "-"}</td>
                   <td>{student.className}</td>
+                  <td>{COURSE_PLAN_LINES[student.courseLine].name}</td>
                   <td>{student.warZone || "-"}</td>
                   <td>{student.teacherName}</td>
                   <td>{student.preferredCourseTime ?? "-"}</td>
@@ -992,7 +1123,13 @@ function Dashboard({
                     {student.queried ? `已查询 ${student.queryCount} 次` : "未查询"}
                   </td>
                   <td>{formatDateTime(student.lastQuery) || "-"}</td>
+                  <td className={getStudentPlanLink(student) ? "done" : "pending"}>
+                    {getStudentPlanLink(student) ? "已生成" : "待补生成"}
+                  </td>
                   <td>
+                    <button disabled={planGenerating} onClick={() => void copyStudentPlanLink(student)}>
+                      复制方案链接
+                    </button>
                     <button onClick={() => void resetQuery(student.id, student.studentName)}>重置查询</button>
                     {loginState.role === "admin" ? (
                       <>
@@ -1004,12 +1141,16 @@ function Dashboard({
                           if (!score) return;
                           const programType = window.prompt("请输入成绩表中的班型名称", student.className);
                           if (!programType) return;
+                          const courseLineInput = window.prompt("课线：Python、探月或小火箭", COURSE_PLAN_LINES[student.courseLine].name);
+                          if (!courseLineInput) return;
+                          const courseLine = normalizeCoursePlanLine(courseLineInput);
                           const teacherName = window.prompt("老师姓名", student.teacherName);
                           if (!teacherName) return;
                           void mutate(`/api/admin/students/${student.id}`, "PATCH", {
                             studentName,
                             score,
                             programType,
+                            courseLine,
                             teacherName
                           });
                         }}
@@ -1041,7 +1182,7 @@ function Dashboard({
               ))}
               {visibleStudentRows.length === 0 ? (
                 <tr>
-                  <td colSpan={14}>没有匹配的学生</td>
+                  <td colSpan={16}>没有匹配的学生</td>
                 </tr>
               ) : null}
             </tbody>
@@ -1078,6 +1219,15 @@ function Metric({ label, value }: { label: string; value: number | string }) {
 function statsPercent(part: number, total: number) {
   if (total <= 0) return "0%";
   return `${Math.round((part / total) * 100)}%`;
+}
+
+function encodeCoursePlanPayload(payload: CoursePlanPayload) {
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return window.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function toCsvCell(value: string) {

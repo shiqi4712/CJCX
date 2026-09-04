@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { ensureSchema, getSql, hasDatabase, requireDatabaseInProduction } from "./database";
+import { normalizeCoursePlanLine } from "./course-plan-config";
 import { hashPassword, verifyPassword } from "./passwords";
 import { getProgramAdmissionDetail, normalizeProgramType } from "./programs";
 import type {
+  CoursePlanLinkLog,
   PublicTeacher,
   QueryLog,
   QueryReleaseSettings,
@@ -55,6 +57,7 @@ type MemoryState = {
   students: Student[];
   teachers: TeacherAccount[];
   queryLogs: QueryLog[];
+  coursePlanLinks: CoursePlanLinkLog[];
   settings: QueryReleaseSettings;
   initialized: boolean;
 };
@@ -68,6 +71,7 @@ const memory = (globalThis.admissionMemoryState ??= {
   students: [],
   teachers: [],
   queryLogs: [],
+  coursePlanLinks: [],
   settings: { resultOpenAt: null },
   initialized: false
 });
@@ -174,6 +178,7 @@ function mapStudent(row: Record<string, unknown>): Student {
     score: String(row.score),
     overallScore: row.overall_score ? String(row.overall_score) : null,
     programType: normalizeProgramType(String(row.program_type ?? "")),
+    courseLine: normalizeCoursePlanLine(String(row.course_line ?? "")),
     warZone: row.war_zone ? String(row.war_zone) : "",
     admission: String(row.admission),
     className,
@@ -212,6 +217,20 @@ function mapQueryLog(row: Record<string, unknown>): QueryLog {
     matchedTeacherName: row.matched_teacher_name ? String(row.matched_teacher_name) : null,
     resultStatus: row.result_status as QueryLog["resultStatus"],
     queriedAt: new Date(String(row.queried_at)).toISOString()
+  };
+}
+
+function mapCoursePlanLink(row: Record<string, unknown>): CoursePlanLinkLog {
+  return {
+    id: String(row.id),
+    studentId: row.student_id ? String(row.student_id) : "",
+    studentName: String(row.student_name),
+    teacherName: row.teacher_name ? String(row.teacher_name) : "未分配老师",
+    courseLine: String(row.course_line),
+    targetClass: String(row.target_class),
+    planUrl: String(row.plan_url),
+    generatedBy: String(row.generated_by),
+    generatedAt: new Date(String(row.generated_at)).toISOString()
   };
 }
 
@@ -432,6 +451,7 @@ export async function getOverview(role: Role, teacherName?: string) {
   let students: Student[];
   let teachers: PublicTeacher[];
   let queryLogs: QueryLog[];
+  let coursePlanLinks: CoursePlanLinkLog[];
 
   if (hasDatabase()) {
     const sql = getSql();
@@ -461,15 +481,15 @@ export async function getOverview(role: Role, teacherName?: string) {
             unknown
           >[])
         : [];
-    queryLogs = logRows.map((row) => ({
-      id: String(row.id),
-      inputStudentName: String(row.input_student_name),
-      matchedStudentId: row.matched_student_id ? String(row.matched_student_id) : null,
-      matchedStudentName: row.matched_student_name ? String(row.matched_student_name) : null,
-      matchedTeacherName: row.matched_teacher_name ? String(row.matched_teacher_name) : null,
-      resultStatus: row.result_status as QueryLog["resultStatus"],
-      queriedAt: new Date(String(row.queried_at)).toISOString()
-    }));
+    queryLogs = logRows.map(mapQueryLog);
+
+    const linkRows = (await sql.query(
+      role === "admin"
+        ? "SELECT * FROM course_plan_links ORDER BY generated_at DESC LIMIT 100"
+        : "SELECT * FROM course_plan_links WHERE teacher_name = $1 ORDER BY generated_at DESC LIMIT 100",
+      role === "admin" ? [] : [teacherName]
+    )) as unknown as Record<string, unknown>[];
+    coursePlanLinks = linkRows.map(mapCoursePlanLink);
   } else {
     students =
       role === "admin" ? [...memory.students] : memory.students.filter((item) => item.teacherName === teacherName);
@@ -478,6 +498,10 @@ export async function getOverview(role: Role, teacherName?: string) {
       role === "admin"
         ? memory.queryLogs.slice(0, 50)
         : memory.queryLogs.filter((log) => log.matchedTeacherName === teacherName).slice(0, 50);
+    coursePlanLinks =
+      role === "admin"
+        ? memory.coursePlanLinks.slice(0, 100)
+        : memory.coursePlanLinks.filter((link) => link.teacherName === teacherName).slice(0, 100);
   }
 
   return {
@@ -491,19 +515,92 @@ export async function getOverview(role: Role, teacherName?: string) {
     students,
     teachers,
     queryLogs,
+    coursePlanLinks,
     settings: await getQueryReleaseSettings(),
     storageMode: hasDatabase() ? getSql().dialect : "memory"
   };
+}
+
+export async function createCoursePlanLink(
+  input: {
+    studentId: string;
+    courseLine: string;
+    targetClass: string;
+    planUrl: string;
+  },
+  role: Role,
+  generatedBy: string
+) {
+  await ensureReady();
+  const courseLine = normalizeCoursePlanLine(input.courseLine);
+  const targetClass = input.targetClass.trim() || "英才班";
+  const planUrl = input.planUrl.trim();
+  if (!planUrl) throw new Error("方案链接不能为空");
+
+  if (!hasDatabase()) {
+    const student = memory.students.find((item) => item.id === input.studentId);
+    if (!student || (role !== "admin" && student.teacherName !== generatedBy)) return null;
+    const link: CoursePlanLinkLog = {
+      id: randomUUID(),
+      studentId: student.id,
+      studentName: student.studentName,
+      teacherName: student.teacherName,
+      courseLine,
+      targetClass,
+      planUrl,
+      generatedBy,
+      generatedAt: nowText()
+    };
+    memory.coursePlanLinks.unshift(link);
+    return link;
+  }
+
+  const sql = getSql();
+  const studentRows = (await sql.query(
+    `SELECT id, student_name, teacher_name FROM students
+     WHERE id = $1 AND ($2='admin' OR teacher_name = $3)
+     LIMIT 1`,
+    [input.studentId, role, generatedBy]
+  )) as unknown as Record<string, unknown>[];
+  const student = studentRows[0];
+  if (!student) return null;
+
+  const id = randomUUID();
+  const teacherName = student.teacher_name ? String(student.teacher_name) : null;
+  if (sql.dialect === "mysql") {
+    await sql.query(
+      `INSERT INTO course_plan_links (
+         id, student_id, student_name, teacher_name, course_line, target_class, plan_url, generated_by
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [id, student.id, student.student_name, teacherName, courseLine, targetClass, planUrl, generatedBy]
+    );
+    const rows = (await sql.query("SELECT * FROM course_plan_links WHERE id=$1 LIMIT 1", [id])) as unknown as Record<
+      string,
+      unknown
+    >[];
+    return rows[0] ? mapCoursePlanLink(rows[0]) : null;
+  }
+
+  const rows = (await sql.query(
+    `INSERT INTO course_plan_links (
+       id, student_id, student_name, teacher_name, course_line, target_class, plan_url, generated_by
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+     RETURNING *`,
+    [id, student.id, student.student_name, teacherName, courseLine, targetClass, planUrl, generatedBy]
+  )) as unknown as Record<string, unknown>[];
+  return rows[0] ? mapCoursePlanLink(rows[0]) : null;
 }
 
 export async function importStudents(rows: SheetStudentRow[]) {
   await ensureReady();
   let importedCount = 0;
   let updatedCount = 0;
+  const affectedStudentIds: string[] = [];
 
   for (const row of rows) {
     const importedClassName = String(row.programType ?? "").trim();
     const programType = normalizeProgramType(importedClassName);
+    const courseLine = normalizeCoursePlanLine(row.courseLine);
     const admission = buildAdmissionByScore(row.score, programType, importedClassName);
     const overallScore = generateOverallScore(admission.admission);
     const teacherName = row.teacherName && row.teacherName !== "未分配老师" ? row.teacherName : null;
@@ -526,19 +623,23 @@ export async function importStudents(rows: SheetStudentRow[]) {
           videoCount,
           messageCount,
           warZone,
+          courseLine,
           ...admission,
           updatedAt: nowText()
         });
+        affectedStudentIds.push(existing.id);
         updatedCount += 1;
       } else {
         const time = nowText();
+        const id = randomUUID();
         memory.students.push({
-          id: randomUUID(),
+          id,
           studentName: row.studentName,
           teacherName: teacherName ?? "未分配老师",
           score: row.score,
           overallScore,
           ...admission,
+          courseLine,
           queried: false,
           queryCount: 0,
           lastQuery: null,
@@ -551,6 +652,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
           createdAt: time,
           updatedAt: time
         });
+        affectedStudentIds.push(id);
         importedCount += 1;
       }
       continue;
@@ -574,7 +676,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
         await sql.query(
           `UPDATE students SET student_name=$2, score=$3, overall_score=$4, program_type=$5, war_zone=$6, admission=$7,
              class_name=$8, detail=$9, advice=$10, homework_lesson_count=$11, video_count=$12,
-             message_count=$13, updated_at=now() WHERE id=$1`,
+             message_count=$13, course_line=$14, updated_at=now() WHERE id=$1`,
           [
             existing[0].id,
             row.studentName,
@@ -588,9 +690,11 @@ export async function importStudents(rows: SheetStudentRow[]) {
             admission.advice,
             homeworkLessonCount,
             videoCount,
-            messageCount
+            messageCount,
+            courseLine
           ]
         );
+        affectedStudentIds.push(existing[0].id);
         updatedCount += 1;
         continue;
       }
@@ -609,7 +713,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
         await sql.query(
           `UPDATE students SET student_name=$2, score=$3, overall_score=$4, program_type=$5, war_zone=$6, admission=$7,
              class_name=$8, detail=$9, advice=$10, homework_lesson_count=$11, video_count=$12,
-             message_count=$13, updated_at=now() WHERE id=$1`,
+             message_count=$13, course_line=$14, updated_at=now() WHERE id=$1`,
           [
             existing[0].id,
             row.studentName,
@@ -623,18 +727,21 @@ export async function importStudents(rows: SheetStudentRow[]) {
             admission.advice,
             homeworkLessonCount,
             videoCount,
-            messageCount
+            messageCount,
+            courseLine
           ]
         );
+        affectedStudentIds.push(existing[0].id);
         updatedCount += 1;
       } else {
+        const id = randomUUID();
         await sql.query(
           `INSERT INTO students (
              id, student_name, normalized_name, teacher_name, score, overall_score, program_type, war_zone, admission, class_name,
-             detail, advice, homework_lesson_count, video_count, message_count
-           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+             detail, advice, homework_lesson_count, video_count, message_count, course_line
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
           [
-            randomUUID(),
+            id,
             row.studentName,
             normalizedName,
             teacherName,
@@ -648,19 +755,22 @@ export async function importStudents(rows: SheetStudentRow[]) {
             admission.advice,
             homeworkLessonCount,
             videoCount,
-            messageCount
+            messageCount,
+            courseLine
           ]
         );
+        affectedStudentIds.push(id);
         importedCount += 1;
       }
       continue;
     }
 
+    const id = randomUUID();
     const result = (await sql.query(
       `INSERT INTO students (
          id, student_name, normalized_name, teacher_name, score, overall_score, program_type, war_zone, admission, class_name,
-         detail, advice, homework_lesson_count, video_count, message_count
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+         detail, advice, homework_lesson_count, video_count, message_count, course_line
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
        ON CONFLICT (normalized_name, teacher_name) DO UPDATE SET
          student_name = EXCLUDED.student_name, score = EXCLUDED.score, overall_score = EXCLUDED.overall_score,
          program_type = EXCLUDED.program_type,
@@ -670,10 +780,11 @@ export async function importStudents(rows: SheetStudentRow[]) {
          homework_lesson_count = EXCLUDED.homework_lesson_count,
          video_count = EXCLUDED.video_count,
          message_count = EXCLUDED.message_count,
+         course_line = EXCLUDED.course_line,
          updated_at = now()
-       RETURNING (xmax = 0) AS inserted`,
+       RETURNING id, (xmax = 0) AS inserted`,
       [
-        randomUUID(),
+        id,
         row.studentName,
         normalizeName(row.studentName),
         teacherName,
@@ -687,13 +798,15 @@ export async function importStudents(rows: SheetStudentRow[]) {
         admission.advice,
         homeworkLessonCount,
         videoCount,
-        messageCount
+        messageCount,
+        courseLine
       ]
-    )) as unknown as Array<{ inserted: boolean }>;
+    )) as unknown as Array<{ id: string; inserted: boolean }>;
+    if (result[0]?.id) affectedStudentIds.push(result[0].id);
     result[0]?.inserted ? (importedCount += 1) : (updatedCount += 1);
   }
 
-  return { importedCount, updatedCount, totalCount: (await getOverview("admin")).stats.studentCount };
+  return { importedCount, updatedCount, affectedStudentIds, totalCount: (await getOverview("admin")).stats.studentCount };
 }
 
 export async function importTeachers(rows: SheetTeacherRow[]) {
@@ -819,7 +932,7 @@ async function mapWithConcurrency<T, R>(items: T[], concurrency: number, mapper:
 
 export async function updateStudent(
   id: string,
-  input: Partial<Pick<Student, "studentName" | "score" | "overallScore" | "teacherName" | "published" | "preferredCourseTime">> & {
+  input: Partial<Pick<Student, "studentName" | "score" | "overallScore" | "teacherName" | "courseLine" | "published" | "preferredCourseTime">> & {
     programType?: string;
   }
 ) {
@@ -832,6 +945,7 @@ export async function updateStudent(
   const teacherName = input.teacherName ?? current.teacherName;
   const importedClassName = String(input.programType ?? current.className).trim();
   const programType = normalizeProgramType(importedClassName);
+  const courseLine = normalizeCoursePlanLine(input.courseLine ?? current.courseLine);
   const published = input.published ?? current.published;
   const preferredCourseTime = input.preferredCourseTime ?? current.preferredCourseTime;
   const homeworkLessonCount = current.homeworkLessonCount;
@@ -848,6 +962,7 @@ export async function updateStudent(
       teacherName,
       published,
       preferredCourseTime,
+      courseLine,
       homeworkLessonCount,
       videoCount,
       messageCount,
@@ -864,7 +979,8 @@ export async function updateStudent(
     await sql.query(
       `UPDATE students SET student_name=$2, normalized_name=$3, score=$4, overall_score=$5, teacher_name=$6,
          program_type=$7, published=$8, admission=$9, class_name=$10, detail=$11, advice=$12,
-         preferred_course_time=$13, homework_lesson_count=$14, video_count=$15, message_count=$16, updated_at=now()
+         preferred_course_time=$13, homework_lesson_count=$14, video_count=$15, message_count=$16,
+         course_line=$17, updated_at=now()
        WHERE id=$1`,
       [
         id,
@@ -882,7 +998,8 @@ export async function updateStudent(
         preferredCourseTime,
         homeworkLessonCount,
         videoCount,
-        messageCount
+        messageCount,
+        courseLine
       ]
     );
     const rows = (await sql.query("SELECT * FROM students WHERE id=$1 LIMIT 1", [id])) as unknown as Record<
@@ -895,7 +1012,8 @@ export async function updateStudent(
   const rows = (await sql.query(
     `UPDATE students SET student_name=$2, normalized_name=$3, score=$4, overall_score=$5, teacher_name=$6,
        program_type=$7, published=$8, admission=$9, class_name=$10, detail=$11, advice=$12,
-       preferred_course_time=$13, homework_lesson_count=$14, video_count=$15, message_count=$16, updated_at=now()
+       preferred_course_time=$13, homework_lesson_count=$14, video_count=$15, message_count=$16,
+       course_line=$17, updated_at=now()
      WHERE id=$1 RETURNING *`,
     [
       id,
@@ -913,7 +1031,8 @@ export async function updateStudent(
       preferredCourseTime,
       homeworkLessonCount,
       videoCount,
-      messageCount
+      messageCount,
+      courseLine
     ]
   )) as unknown as Record<string, unknown>[];
   return rows[0] ? mapStudent(rows[0]) : null;
@@ -1138,6 +1257,7 @@ export function resetMemoryStoreForTests() {
   memory.students = [];
   memory.teachers = [];
   memory.queryLogs = [];
+  memory.coursePlanLinks = [];
   memory.settings = { resultOpenAt: null };
   memory.initialized = false;
 }

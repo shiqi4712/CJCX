@@ -1,6 +1,7 @@
 import type { ProgramType } from "./programs";
 
 export type Role = "admin" | "teacher";
+export type LearningCourseLine = "python" | "moon" | "rocket";
 
 export type Student = {
   id: string;
@@ -9,6 +10,7 @@ export type Student = {
   score: string;
   overallScore: string | null;
   programType: ProgramType;
+  courseLine: LearningCourseLine;
   warZone: string;
   admission: string;
   className: string;
@@ -47,6 +49,18 @@ export type QueryLog = {
   queriedAt: string;
 };
 
+export type CoursePlanLinkLog = {
+  id: string;
+  studentId: string;
+  studentName: string;
+  teacherName: string;
+  courseLine: string;
+  targetClass: string;
+  planUrl: string;
+  generatedBy: string;
+  generatedAt: string;
+};
+
 export type QueryReleaseSettings = {
   resultOpenAt: string | null;
 };
@@ -57,6 +71,7 @@ export type SheetStudentRow = {
   overallScore?: string | null;
   teacherName: string;
   programType?: string;
+  courseLine?: LearningCourseLine;
   homeworkLessonCount?: number;
   videoCount?: number;
   messageCount?: number;

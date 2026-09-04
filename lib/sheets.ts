@@ -1,5 +1,6 @@
 import { DOMParser, type Element as XmlElement } from "@xmldom/xmldom";
 import JSZip from "jszip";
+import { parseCoursePlanLine } from "./course-plan-config";
 import type { SheetStudentRow, SheetTeacherRow } from "./types";
 
 type RecordRow = Record<string, unknown>;
@@ -177,6 +178,7 @@ export function toStudentRows(rows: RecordRow[]): SheetStudentRow[] {
   return rows
     .map((row) => {
       const warZoneValue = getRowValue(row, ["战区", "战区名称"]);
+      const courseLineValue = getRowValue(row, ["课线", "课程线", "课程课线"]);
       return {
         studentName: String(getRowValue(row, ["学生姓名", "学员姓名", "姓名"]) ?? "").trim(),
         score: String(getRowValue(row, ["成绩", "等级", "录取成绩"]) ?? "").trim(),
@@ -186,6 +188,7 @@ export function toStudentRows(rows: RecordRow[]): SheetStudentRow[] {
         programType:
           String(getRowValue(row, ["班级类型", "班型", "录取班级", "班级", "项目类型"]) ?? "").trim() ||
           undefined,
+        courseLine: parseCoursePlanLine(courseLineValue === undefined ? undefined : String(courseLineValue)),
         ...(warZoneValue !== undefined ? { warZone: String(warZoneValue).trim() } : {}),
         homeworkLessonCount: toNonNegativeInteger(
           getRowValue(row, [

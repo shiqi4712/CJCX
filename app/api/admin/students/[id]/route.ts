@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
 import { deleteStudent, updateStudent } from "@/lib/store";
 import { cleanName, cleanScore, isUuid } from "@/lib/validation";
+import { parseCoursePlanLine } from "@/lib/course-plan-config";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await requireSession("admin");
@@ -18,6 +19,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     ...(body.overallScore !== undefined ? { overallScore: cleanScore(body.overallScore) || null } : {}),
     ...(body.teacherName !== undefined ? { teacherName: cleanName(body.teacherName) || "未分配老师" } : {}),
     ...(body.programType !== undefined ? { programType: String(body.programType).trim() } : {}),
+    ...(body.courseLine !== undefined ? { courseLine: parseCoursePlanLine(String(body.courseLine)) } : {}),
     ...(typeof body.published === "boolean" ? { published: body.published } : {})
   };
   if ("studentName" in input && !input.studentName) {

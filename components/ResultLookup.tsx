@@ -104,12 +104,7 @@ export function ResultLookup() {
       ) : null}
 
       {result ? (
-        <>
-          <AdmissionResult result={result} />
-          <nav className="result-actions">
-            <Link href="/">返回查询</Link>
-          </nav>
-        </>
+        <AdmissionResult result={result} />
       ) : null}
     </main>
   );

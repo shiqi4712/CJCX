@@ -137,6 +137,7 @@ async function initializePostgresSchema(sql: SqlClient) {
       score varchar(30) NOT NULL,
       overall_score varchar(30),
       program_type varchar(20) NOT NULL DEFAULT '英才特训营',
+      course_line varchar(20) NOT NULL DEFAULT 'moon',
       war_zone varchar(50),
       admission varchar(20) NOT NULL,
       class_name varchar(50) NOT NULL,
@@ -158,6 +159,7 @@ async function initializePostgresSchema(sql: SqlClient) {
 
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS preferred_course_time varchar(80)");
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS program_type varchar(20) NOT NULL DEFAULT '英才特训营'");
+  await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS course_line varchar(20) NOT NULL DEFAULT 'moon'");
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS overall_score varchar(30)");
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS war_zone varchar(50)");
   await sql.query("ALTER TABLE students ADD COLUMN IF NOT EXISTS homework_lesson_count integer NOT NULL DEFAULT 0");
@@ -184,6 +186,20 @@ async function initializePostgresSchema(sql: SqlClient) {
     )
   `);
 
+  await sql.query(`
+    CREATE TABLE IF NOT EXISTS course_plan_links (
+      id uuid PRIMARY KEY,
+      student_id uuid REFERENCES students(id) ON DELETE SET NULL,
+      student_name varchar(50) NOT NULL,
+      teacher_name varchar(50),
+      course_line varchar(20) NOT NULL,
+      target_class varchar(50) NOT NULL,
+      plan_url text NOT NULL,
+      generated_by varchar(50) NOT NULL,
+      generated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
   await sql.query("ALTER TABLE query_logs ADD COLUMN IF NOT EXISTS matched_student_name varchar(50)");
   await sql.query("ALTER TABLE query_logs ADD COLUMN IF NOT EXISTS matched_teacher_name varchar(50)");
   await sql.query("ALTER TABLE query_logs DROP CONSTRAINT IF EXISTS query_logs_result_status_check");
@@ -195,6 +211,8 @@ async function initializePostgresSchema(sql: SqlClient) {
   await sql.query("CREATE INDEX IF NOT EXISTS students_teacher_idx ON students(teacher_name)");
   await sql.query("CREATE INDEX IF NOT EXISTS query_logs_time_idx ON query_logs(queried_at DESC)");
   await sql.query("CREATE INDEX IF NOT EXISTS query_logs_teacher_idx ON query_logs(matched_teacher_name, queried_at DESC)");
+  await sql.query("CREATE INDEX IF NOT EXISTS course_plan_links_time_idx ON course_plan_links(generated_at DESC)");
+  await sql.query("CREATE INDEX IF NOT EXISTS course_plan_links_teacher_idx ON course_plan_links(teacher_name, generated_at DESC)");
 }
 
 async function initializeMySqlSchema(sql: SqlClient) {
@@ -219,6 +237,7 @@ async function initializeMySqlSchema(sql: SqlClient) {
       score varchar(30) NOT NULL,
       overall_score varchar(30),
       program_type varchar(20) NOT NULL DEFAULT '英才特训营',
+      course_line varchar(20) NOT NULL DEFAULT 'moon',
       war_zone varchar(50),
       admission varchar(20) NOT NULL,
       class_name varchar(50) NOT NULL,
@@ -242,6 +261,7 @@ async function initializeMySqlSchema(sql: SqlClient) {
 
   await addMySqlColumnIfMissing(sql, "students", "preferred_course_time", "varchar(80)");
   await addMySqlColumnIfMissing(sql, "students", "program_type", "varchar(20) NOT NULL DEFAULT '英才特训营'");
+  await addMySqlColumnIfMissing(sql, "students", "course_line", "varchar(20) NOT NULL DEFAULT 'moon'");
   await addMySqlColumnIfMissing(sql, "students", "overall_score", "varchar(30)");
   await addMySqlColumnIfMissing(sql, "students", "war_zone", "varchar(50)");
   await addMySqlColumnIfMissing(sql, "students", "homework_lesson_count", "int NOT NULL DEFAULT 0");
@@ -271,6 +291,22 @@ async function initializeMySqlSchema(sql: SqlClient) {
     ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
+  await sql.query(`
+    CREATE TABLE IF NOT EXISTS course_plan_links (
+      id char(36) PRIMARY KEY,
+      student_id char(36),
+      student_name varchar(50) NOT NULL,
+      teacher_name varchar(50),
+      course_line varchar(20) NOT NULL,
+      target_class varchar(50) NOT NULL,
+      plan_url text NOT NULL,
+      generated_by varchar(50) NOT NULL,
+      generated_at timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+      CONSTRAINT course_plan_links_student_fk FOREIGN KEY (student_id)
+        REFERENCES students(id) ON DELETE SET NULL
+    ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
   await addMySqlColumnIfMissing(sql, "query_logs", "matched_student_name", "varchar(50)");
   await addMySqlColumnIfMissing(sql, "query_logs", "matched_teacher_name", "varchar(50)");
 
@@ -278,6 +314,8 @@ async function initializeMySqlSchema(sql: SqlClient) {
   await createMySqlIndexIfMissing(sql, "students", "students_teacher_idx", "teacher_name");
   await createMySqlIndexIfMissing(sql, "query_logs", "query_logs_time_idx", "queried_at");
   await createMySqlIndexIfMissing(sql, "query_logs", "query_logs_teacher_idx", "matched_teacher_name, queried_at");
+  await createMySqlIndexIfMissing(sql, "course_plan_links", "course_plan_links_time_idx", "generated_at");
+  await createMySqlIndexIfMissing(sql, "course_plan_links", "course_plan_links_teacher_idx", "teacher_name, generated_at");
 }
 
 async function addMySqlColumnIfMissing(sql: SqlClient, tableName: string, columnName: string, definition: string) {

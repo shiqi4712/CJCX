@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
+import { createAutomaticCoursePlanLinks } from "@/lib/course-plan-links";
 import { getOverview, importStudents } from "@/lib/store";
 import { cleanName, cleanScore } from "@/lib/validation";
+import { parseCoursePlanLine } from "@/lib/course-plan-config";
 
 export async function GET() {
   const session = await requireSession();
@@ -33,12 +35,21 @@ export async function POST(request: Request) {
       score,
       teacherName,
       programType: String(body.programType ?? "").trim() || undefined,
+      courseLine: parseCoursePlanLine(String(body.courseLine ?? "")),
       homeworkLessonCount: toNonNegativeInteger(body.homeworkLessonCount),
       videoCount: toNonNegativeInteger(body.videoCount),
       messageCount: toNonNegativeInteger(body.messageCount)
     }
   ]);
-  return NextResponse.json(result);
+  const overview = await getOverview(session.role, session.teacherName);
+  const generatedPlanCount = await createAutomaticCoursePlanLinks(
+    result.affectedStudentIds,
+    overview.students,
+    new URL(request.url).origin,
+    session.role,
+    session.teacherName
+  );
+  return NextResponse.json({ ...result, generatedPlanCount });
 }
 
 function toNonNegativeInteger(value: unknown) {
