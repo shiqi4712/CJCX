@@ -49,18 +49,6 @@ export type QueryLog = {
   queriedAt: string;
 };
 
-export type CoursePlanLinkLog = {
-  id: string;
-  studentId: string;
-  studentName: string;
-  teacherName: string;
-  courseLine: string;
-  targetClass: string;
-  planUrl: string;
-  generatedBy: string;
-  generatedAt: string;
-};
-
 export type QueryReleaseSettings = {
   resultOpenAt: string | null;
 };

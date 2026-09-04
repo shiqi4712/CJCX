@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
-import { createAutomaticCoursePlanLinks } from "@/lib/course-plan-links";
 import { getOverview, importStudents } from "@/lib/store";
 import { cleanName, cleanScore } from "@/lib/validation";
 import { parseCoursePlanLine } from "@/lib/course-plan-config";
@@ -48,22 +47,7 @@ export async function POST(request: Request) {
       }
     ]);
 
-    let generatedPlanCount = 0;
-    let planWarning: string | undefined;
-    try {
-      const overview = await getOverview(session.role, session.teacherName);
-      generatedPlanCount = await createAutomaticCoursePlanLinks(
-        result.affectedStudentIds,
-        overview.students,
-        new URL(request.url).origin,
-        session.role,
-        session.teacherName
-      );
-    } catch (error) {
-      console.error("Student saved but automatic course plan link generation failed", error);
-      planWarning = "学生已保存，但学习方案链接生成失败，请稍后在学生名单中重试";
-    }
-    return NextResponse.json({ ...result, generatedPlanCount, ...(planWarning ? { planWarning } : {}) });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Failed to add student", error);
     return NextResponse.json(

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
 import { archiveUploadedFile } from "@/lib/blob-storage";
-import { createAutomaticCoursePlanLinks } from "@/lib/course-plan-links";
 import { isSheetFile, parseSheetFile, toStudentRows } from "@/lib/sheets";
-import { getOverview, importStudents } from "@/lib/store";
+import { importStudents } from "@/lib/store";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -37,24 +36,8 @@ export async function POST(request: Request) {
     }
 
     const result = await importStudents(rows);
-    let generatedPlanCount = 0;
-    let planWarning: string | undefined;
-    try {
-      const origin = new URL(request.url).origin;
-      const overview = await getOverview("admin");
-      generatedPlanCount = await createAutomaticCoursePlanLinks(
-        result.affectedStudentIds,
-        overview.students,
-        origin,
-        session.role,
-        session.teacherName
-      );
-    } catch (error) {
-      console.error("Students imported but automatic course plan link generation failed", error);
-      planWarning = "成绩已导入，但部分学习方案链接生成失败，请稍后在学生名单中重试";
-    }
     await archiveUploadedFile("imports/students", file);
-    return NextResponse.json({ ...result, generatedPlanCount, ...(planWarning ? { planWarning } : {}) });
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "学生成绩导入失败" },

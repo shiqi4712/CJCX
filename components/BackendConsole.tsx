@@ -4,8 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import {
   COURSE_PLAN_LINES,
   normalizeCoursePlanLine,
-  type CoursePlanLineId,
-  type CoursePlanPayload
+  type CoursePlanLineId
 } from "@/lib/course-plan-config";
 
 const STUDENT_PAGE_SIZE = 20;
@@ -55,17 +54,6 @@ type Overview = {
     matchedTeacherName: string | null;
     resultStatus: "success" | "not_found" | "pending_review";
     queriedAt: string;
-  }>;
-  coursePlanLinks: Array<{
-    id: string;
-    studentId: string;
-    studentName: string;
-    teacherName: string;
-    courseLine: string;
-    targetClass: string;
-    planUrl: string;
-    generatedBy: string;
-    generatedAt: string;
   }>;
   settings: {
     resultOpenAt: string | null;
@@ -235,7 +223,6 @@ function Dashboard({
   const [newStudentVideoCount, setNewStudentVideoCount] = useState("");
   const [newStudentMessageCount, setNewStudentMessageCount] = useState("");
   const [resultOpenAtInput, setResultOpenAtInput] = useState("");
-  const [planGenerating, setPlanGenerating] = useState(false);
   const [pendingReviewLogs, setPendingReviewLogs] = useState<Overview["queryLogs"]>([]);
   const [pendingReviewPage, setPendingReviewPage] = useState(1);
   const [pendingReviewTotal, setPendingReviewTotal] = useState(0);
@@ -310,7 +297,6 @@ function Dashboard({
   };
   const selectedWarZoneLabel =
     warZoneOptions.find((option) => option.value === studentWarZone)?.label ?? "全部战区";
-  const coursePlanLinkRows = overview?.coursePlanLinks ?? [];
 
   const refreshPendingReviewLogs = useCallback(async (page: number) => {
     setPendingReviewLoading(true);
@@ -386,9 +372,9 @@ function Dashboard({
     }
 
     setStatus(
-      `${label}导入完成：新增 ${data.importedCount} 条，更新 ${data.updatedCount ?? 0} 条，自动生成方案 ${
-        data.generatedPlanCount ?? 0
-      } 条${data.planWarning ? `；${data.planWarning}` : ""}${data.archiveWarning ? `；${data.archiveWarning}` : ""}`
+      `${label}导入完成：新增 ${data.importedCount} 条，更新 ${data.updatedCount ?? 0} 条${
+        data.archiveWarning ? `；${data.archiveWarning}` : ""
+      }`
     );
     await refreshOverview();
   }
@@ -452,7 +438,7 @@ function Dashboard({
     setNewStudentHomeworkLessonCount("");
     setNewStudentVideoCount("");
     setNewStudentMessageCount("");
-    setStatus(data.planWarning ?? `${studentName} 已添加，学习方案链接已自动生成`);
+    setStatus(`${studentName} 已添加`);
     await refreshOverview();
   }
 
@@ -592,7 +578,7 @@ function Dashboard({
       student.score,
       student.overallScore ?? "",
       student.className,
-      COURSE_PLAN_LINES[student.courseLine].name,
+      COURSE_PLAN_LINES[normalizeCoursePlanLine(student.courseLine)].name,
       student.warZone,
       student.teacherName,
       student.queried ? "已查询" : "未查询",
@@ -639,79 +625,6 @@ function Dashboard({
       setStatus(`已导出全部 ${pendingReviewTotal} 条审核期访问记录`);
     } finally {
       setPendingReviewExporting(false);
-    }
-  }
-
-  function buildStudentCoursePlan(student: Overview["students"][number]) {
-    const courseLine = normalizeCoursePlanLine(student.courseLine);
-    const line = COURSE_PLAN_LINES[courseLine];
-    const targetClass = student.className || line.targetClass;
-    const payload: CoursePlanPayload = {
-      studentId: student.id,
-      student: student.studentName,
-      score: student.score,
-      courseLine,
-      targetClass,
-      focus: line.focusDefault,
-      goal: line.goalDefault,
-      preferredCourseTime: student.preferredCourseTime,
-      showPrice: true,
-      price: line.price
-    };
-    return {
-      courseLine,
-      targetClass,
-      planUrl: `${window.location.origin}/course-plan#p=${encodeCoursePlanPayload(payload)}`
-    };
-  }
-
-  function getStudentPlanLink(student: Overview["students"][number]) {
-    return coursePlanLinkRows.find((link) => link.studentId === student.id)?.planUrl ?? "";
-  }
-
-  async function saveCoursePlanLink(input: {
-    studentId: string;
-    courseLine: CoursePlanLineId;
-    targetClass: string;
-    planUrl: string;
-  }) {
-    const response = await fetch("/api/teacher/course-plans/links", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input)
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.message ?? "方案链接生成失败");
-    }
-    return data as { planUrl?: string };
-  }
-
-  async function ensureStudentPlanLink(student: Overview["students"][number]) {
-    const existingPlanUrl = getStudentPlanLink(student);
-    if (existingPlanUrl) return existingPlanUrl;
-
-    const built = buildStudentCoursePlan(student);
-    const data = await saveCoursePlanLink({
-      studentId: student.id,
-      courseLine: built.courseLine,
-      targetClass: built.targetClass,
-      planUrl: built.planUrl
-    });
-    return data.planUrl ?? built.planUrl;
-  }
-
-  async function copyStudentPlanLink(student: Overview["students"][number]) {
-    setPlanGenerating(true);
-    try {
-      const savedUrl = await ensureStudentPlanLink(student);
-      await navigator.clipboard.writeText(savedUrl);
-      setStatus(`${student.studentName} 的方案链接已复制`);
-      await refreshOverview();
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "方案链接复制失败");
-    } finally {
-      setPlanGenerating(false);
     }
   }
 
@@ -1059,7 +972,7 @@ function Dashboard({
       <section className="table-panel">
         <div className="table-panel-head">
           <div>
-            <h3>学生名单与方案链接</h3>
+            <h3>学生名单</h3>
             <div className="student-filters">
               <label className="student-search">
                 <span>搜索学生</span>
@@ -1106,7 +1019,6 @@ function Dashboard({
                 <th>录取结果</th>
                 <th>查询状态</th>
                 <th>最近查询</th>
-                <th>方案链接</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -1117,7 +1029,7 @@ function Dashboard({
                   <td>{student.score}</td>
                   <td>{student.overallScore ?? "-"}</td>
                   <td>{student.className}</td>
-                  <td>{COURSE_PLAN_LINES[student.courseLine].name}</td>
+                  <td>{COURSE_PLAN_LINES[normalizeCoursePlanLine(student.courseLine)].name}</td>
                   <td>{student.warZone || "-"}</td>
                   <td>{student.teacherName}</td>
                   <td>{student.preferredCourseTime ?? "-"}</td>
@@ -1129,13 +1041,7 @@ function Dashboard({
                     {student.queried ? `已查询 ${student.queryCount} 次` : "未查询"}
                   </td>
                   <td>{formatDateTime(student.lastQuery) || "-"}</td>
-                  <td className={getStudentPlanLink(student) ? "done" : "pending"}>
-                    {getStudentPlanLink(student) ? "已生成" : "待补生成"}
-                  </td>
                   <td>
-                    <button disabled={planGenerating} onClick={() => void copyStudentPlanLink(student)}>
-                      复制方案链接
-                    </button>
                     <button onClick={() => void resetQuery(student.id, student.studentName)}>重置查询</button>
                     {loginState.role === "admin" ? (
                       <>
@@ -1147,7 +1053,10 @@ function Dashboard({
                           if (!score) return;
                           const programType = window.prompt("请输入成绩表中的班型名称", student.className);
                           if (!programType) return;
-                          const courseLineInput = window.prompt("课线：Python、探月或小火箭", COURSE_PLAN_LINES[student.courseLine].name);
+                          const courseLineInput = window.prompt(
+                            "课线：Python、探月或小火箭",
+                            COURSE_PLAN_LINES[normalizeCoursePlanLine(student.courseLine)].name
+                          );
                           if (!courseLineInput) return;
                           const courseLine = normalizeCoursePlanLine(courseLineInput);
                           const teacherName = window.prompt("老师姓名", student.teacherName);
@@ -1188,7 +1097,7 @@ function Dashboard({
               ))}
               {visibleStudentRows.length === 0 ? (
                 <tr>
-                  <td colSpan={16}>没有匹配的学生</td>
+                  <td colSpan={15}>没有匹配的学生</td>
                 </tr>
               ) : null}
             </tbody>
@@ -1225,15 +1134,6 @@ function Metric({ label, value }: { label: string; value: number | string }) {
 function statsPercent(part: number, total: number) {
   if (total <= 0) return "0%";
   return `${Math.round((part / total) * 100)}%`;
-}
-
-function encodeCoursePlanPayload(payload: CoursePlanPayload) {
-  const bytes = new TextEncoder().encode(JSON.stringify(payload));
-  let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-  return window.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function toCsvCell(value: string) {

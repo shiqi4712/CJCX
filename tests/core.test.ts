@@ -22,7 +22,6 @@ import {
   importStudents,
   importTeachers,
   login,
-  createCoursePlanLink,
   getPendingReviewLogs,
   recordPendingReviewQuery,
   queryStudentByName,
@@ -437,7 +436,7 @@ test("single student import can add one assigned student", async () => {
   assert.equal(overview.students[0].messageCount, 31);
 });
 
-test("course plan links are generated and filtered by teacher", async () => {
+test("course plan content follows the student's imported course line", async () => {
   resetMemoryStoreForTests();
   await importTeachers([
     { teacherName: "方案王老师", password: "abc123" },
@@ -457,21 +456,6 @@ test("course plan links are generated and filtered by teacher", async () => {
   assert.equal(getCoursePlanLine("moon").planDetailImage, "/images/course-plan/moon-plan-detail.jpg");
   assert.equal(getCoursePlanLine("rocket").scheduleImage, "/images/course-plan/rocket-schedule.png");
 
-  const link = await createCoursePlanLink(
-    {
-      studentId: student.id,
-      courseLine: "python",
-      targetClass: "科特班",
-      planUrl: "https://example.test/course-plan#p=abc"
-    },
-    "teacher",
-    "方案王老师"
-  );
-  assert.equal(link?.studentName, "方案学生一");
-
-  assert.equal((await getOverview("teacher", "方案王老师")).coursePlanLinks.length, 1);
-  assert.equal((await getOverview("teacher", "方案李老师")).coursePlanLinks.length, 0);
-  assert.equal((await getOverview("admin")).coursePlanLinks.length, 1);
 });
 
 test("course-plan export creates one personalized PDF per student", async () => {

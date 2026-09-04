@@ -4,7 +4,6 @@ import { normalizeCoursePlanLine } from "./course-plan-config";
 import { hashPassword, verifyPassword } from "./passwords";
 import { getProgramAdmissionDetail, normalizeProgramType } from "./programs";
 import type {
-  CoursePlanLinkLog,
   PublicTeacher,
   QueryLog,
   QueryReleaseSettings,
@@ -57,7 +56,6 @@ type MemoryState = {
   students: Student[];
   teachers: TeacherAccount[];
   queryLogs: QueryLog[];
-  coursePlanLinks: CoursePlanLinkLog[];
   settings: QueryReleaseSettings;
   initialized: boolean;
 };
@@ -71,7 +69,6 @@ const memory = (globalThis.admissionMemoryState ??= {
   students: [],
   teachers: [],
   queryLogs: [],
-  coursePlanLinks: [],
   settings: { resultOpenAt: null },
   initialized: false
 });
@@ -217,20 +214,6 @@ function mapQueryLog(row: Record<string, unknown>): QueryLog {
     matchedTeacherName: row.matched_teacher_name ? String(row.matched_teacher_name) : null,
     resultStatus: row.result_status as QueryLog["resultStatus"],
     queriedAt: new Date(String(row.queried_at)).toISOString()
-  };
-}
-
-function mapCoursePlanLink(row: Record<string, unknown>): CoursePlanLinkLog {
-  return {
-    id: String(row.id),
-    studentId: row.student_id ? String(row.student_id) : "",
-    studentName: String(row.student_name),
-    teacherName: row.teacher_name ? String(row.teacher_name) : "未分配老师",
-    courseLine: String(row.course_line),
-    targetClass: String(row.target_class),
-    planUrl: String(row.plan_url),
-    generatedBy: String(row.generated_by),
-    generatedAt: new Date(String(row.generated_at)).toISOString()
   };
 }
 
@@ -451,7 +434,6 @@ export async function getOverview(role: Role, teacherName?: string) {
   let students: Student[];
   let teachers: PublicTeacher[];
   let queryLogs: QueryLog[];
-  let coursePlanLinks: CoursePlanLinkLog[];
 
   if (hasDatabase()) {
     const sql = getSql();
@@ -483,13 +465,6 @@ export async function getOverview(role: Role, teacherName?: string) {
         : [];
     queryLogs = logRows.map(mapQueryLog);
 
-    const linkRows = (await sql.query(
-      role === "admin"
-        ? "SELECT * FROM course_plan_links ORDER BY generated_at DESC LIMIT 100"
-        : "SELECT * FROM course_plan_links WHERE teacher_name = $1 ORDER BY generated_at DESC LIMIT 100",
-      role === "admin" ? [] : [teacherName]
-    )) as unknown as Record<string, unknown>[];
-    coursePlanLinks = linkRows.map(mapCoursePlanLink);
   } else {
     students =
       role === "admin" ? [...memory.students] : memory.students.filter((item) => item.teacherName === teacherName);
@@ -498,10 +473,6 @@ export async function getOverview(role: Role, teacherName?: string) {
       role === "admin"
         ? memory.queryLogs.slice(0, 50)
         : memory.queryLogs.filter((log) => log.matchedTeacherName === teacherName).slice(0, 50);
-    coursePlanLinks =
-      role === "admin"
-        ? memory.coursePlanLinks.slice(0, 100)
-        : memory.coursePlanLinks.filter((link) => link.teacherName === teacherName).slice(0, 100);
   }
 
   return {
@@ -515,87 +486,15 @@ export async function getOverview(role: Role, teacherName?: string) {
     students,
     teachers,
     queryLogs,
-    coursePlanLinks,
     settings: await getQueryReleaseSettings(),
     storageMode: hasDatabase() ? getSql().dialect : "memory"
   };
-}
-
-export async function createCoursePlanLink(
-  input: {
-    studentId: string;
-    courseLine: string;
-    targetClass: string;
-    planUrl: string;
-  },
-  role: Role,
-  generatedBy: string
-) {
-  await ensureReady();
-  const courseLine = normalizeCoursePlanLine(input.courseLine);
-  const targetClass = input.targetClass.trim() || "英才班";
-  const planUrl = input.planUrl.trim();
-  if (!planUrl) throw new Error("方案链接不能为空");
-
-  if (!hasDatabase()) {
-    const student = memory.students.find((item) => item.id === input.studentId);
-    if (!student || (role !== "admin" && student.teacherName !== generatedBy)) return null;
-    const link: CoursePlanLinkLog = {
-      id: randomUUID(),
-      studentId: student.id,
-      studentName: student.studentName,
-      teacherName: student.teacherName,
-      courseLine,
-      targetClass,
-      planUrl,
-      generatedBy,
-      generatedAt: nowText()
-    };
-    memory.coursePlanLinks.unshift(link);
-    return link;
-  }
-
-  const sql = getSql();
-  const studentRows = (await sql.query(
-    `SELECT id, student_name, teacher_name FROM students
-     WHERE id = $1 AND ($2='admin' OR teacher_name = $3)
-     LIMIT 1`,
-    [input.studentId, role, generatedBy]
-  )) as unknown as Record<string, unknown>[];
-  const student = studentRows[0];
-  if (!student) return null;
-
-  const id = randomUUID();
-  const teacherName = student.teacher_name ? String(student.teacher_name) : null;
-  if (sql.dialect === "mysql") {
-    await sql.query(
-      `INSERT INTO course_plan_links (
-         id, student_id, student_name, teacher_name, course_line, target_class, plan_url, generated_by
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [id, student.id, student.student_name, teacherName, courseLine, targetClass, planUrl, generatedBy]
-    );
-    const rows = (await sql.query("SELECT * FROM course_plan_links WHERE id=$1 LIMIT 1", [id])) as unknown as Record<
-      string,
-      unknown
-    >[];
-    return rows[0] ? mapCoursePlanLink(rows[0]) : null;
-  }
-
-  const rows = (await sql.query(
-    `INSERT INTO course_plan_links (
-       id, student_id, student_name, teacher_name, course_line, target_class, plan_url, generated_by
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-     RETURNING *`,
-    [id, student.id, student.student_name, teacherName, courseLine, targetClass, planUrl, generatedBy]
-  )) as unknown as Record<string, unknown>[];
-  return rows[0] ? mapCoursePlanLink(rows[0]) : null;
 }
 
 export async function importStudents(rows: SheetStudentRow[]) {
   await ensureReady();
   let importedCount = 0;
   let updatedCount = 0;
-  const affectedStudentIds: string[] = [];
 
   for (const row of rows) {
     const importedClassName = String(row.programType ?? "").trim();
@@ -627,7 +526,6 @@ export async function importStudents(rows: SheetStudentRow[]) {
           ...admission,
           updatedAt: nowText()
         });
-        affectedStudentIds.push(existing.id);
         updatedCount += 1;
       } else {
         const time = nowText();
@@ -652,7 +550,6 @@ export async function importStudents(rows: SheetStudentRow[]) {
           createdAt: time,
           updatedAt: time
         });
-        affectedStudentIds.push(id);
         importedCount += 1;
       }
       continue;
@@ -694,7 +591,6 @@ export async function importStudents(rows: SheetStudentRow[]) {
             courseLine
           ]
         );
-        affectedStudentIds.push(existing[0].id);
         updatedCount += 1;
         continue;
       }
@@ -731,7 +627,6 @@ export async function importStudents(rows: SheetStudentRow[]) {
             courseLine
           ]
         );
-        affectedStudentIds.push(existing[0].id);
         updatedCount += 1;
       } else {
         const id = randomUUID();
@@ -759,7 +654,6 @@ export async function importStudents(rows: SheetStudentRow[]) {
             courseLine
           ]
         );
-        affectedStudentIds.push(id);
         importedCount += 1;
       }
       continue;
@@ -782,7 +676,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
          message_count = EXCLUDED.message_count,
          course_line = EXCLUDED.course_line,
          updated_at = now()
-       RETURNING id, (xmax = 0) AS inserted`,
+       RETURNING (xmax = 0) AS inserted`,
       [
         id,
         row.studentName,
@@ -801,15 +695,14 @@ export async function importStudents(rows: SheetStudentRow[]) {
         messageCount,
         courseLine
       ]
-    )) as unknown as Array<{ id: string; inserted: boolean }>;
-    if (result[0]?.id) affectedStudentIds.push(result[0].id);
+    )) as unknown as Array<{ inserted: boolean }>;
     result[0]?.inserted ? (importedCount += 1) : (updatedCount += 1);
   }
 
   const totalCount = hasDatabase()
     ? Number((await getSql().query("SELECT COUNT(*) AS total_count FROM students"))[0]?.total_count ?? 0)
     : memory.students.length;
-  return { importedCount, updatedCount, affectedStudentIds, totalCount };
+  return { importedCount, updatedCount, totalCount };
 }
 
 export async function importTeachers(rows: SheetTeacherRow[]) {
@@ -1260,7 +1153,6 @@ export function resetMemoryStoreForTests() {
   memory.students = [];
   memory.teachers = [];
   memory.queryLogs = [];
-  memory.coursePlanLinks = [];
   memory.settings = { resultOpenAt: null };
   memory.initialized = false;
 }
