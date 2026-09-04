@@ -8,5 +8,11 @@ export async function GET() {
     return NextResponse.json({ message: "请先登录" }, { status: 401 });
   }
 
-  return NextResponse.json(getOverview(session.role, session.teacherName));
+  return NextResponse.json({
+    ...(await getOverview(session.role, session.teacherName)),
+    session: {
+      teacherName: session.teacherName,
+      role: session.role
+    }
+  });
 }

@@ -1,8 +1,41 @@
+import { execFile } from "node:child_process";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { DOMParser, XMLSerializer, type Element as XmlElement } from "@xmldom/xmldom";
+import fontkit from "@pdf-lib/fontkit";
 import JSZip from "jszip";
+import { PDFDocument, rgb } from "pdf-lib";
 import type { SheetStudentRow } from "./types";
 
+const execFileAsync = promisify(execFile);
 const WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+const A4_WIDTH = 595.28;
+const A4_HEIGHT = 841.89;
+const PAGE_MARGIN = 48;
+const TITLE_SIZE = 20;
+const BODY_SIZE = 11;
+const LINE_HEIGHT = 18;
+const PDF_FONT_CANDIDATES = [
+  process.env.COURSE_PLAN_FONT_PATH,
+  "C:\\Windows\\Fonts\\simhei.ttf",
+  "C:\\Windows\\Fonts\\msyh.ttf",
+  "/usr/share/fonts/truetype/arphic/ukai.ttf",
+  "/usr/share/fonts/truetype/arphic/uming.ttf",
+  "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+  "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf",
+  "/usr/local/share/fonts/NotoSansCJK-Regular.otf"
+].filter((value): value is string => Boolean(value));
+const OFFICE_CANDIDATES = [
+  process.env.LIBREOFFICE_BIN,
+  "/usr/bin/soffice",
+  "/usr/bin/libreoffice",
+  "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
+  "soffice",
+  "libreoffice"
+].filter((value): value is string => Boolean(value));
 
 const escapeXml = (value: string) =>
   value
@@ -12,28 +45,179 @@ const escapeXml = (value: string) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
 
-const escapeHtml = (value: string) =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-
 export async function buildCoursePlanZip(templateFile: File | null, students: SheetStudentRow[]) {
   const archive = new JSZip();
   const templateBuffer = templateFile ? Buffer.from(await templateFile.arrayBuffer()) : null;
   const isDocx = templateFile?.name.toLowerCase().endsWith(".docx") && templateBuffer;
+  const pdfFontBytes = isDocx ? null : await loadPdfFontBytes();
 
-  for (const student of students) {
-    const filename = `${student.studentName}个性化学习方案文档.${isDocx ? "docx" : "doc"}`;
-    const content = isDocx
-      ? await buildDocxFromTemplate(templateBuffer, student)
-      : Buffer.from(buildFallbackWordHtml(student), "utf8");
-    archive.file(filename, content);
+  if (isDocx) {
+    const pdfDocuments = await convertDocxTemplatesToPdf(templateBuffer, students);
+    for (const { student, content } of pdfDocuments) {
+      archive.file(`${student.studentName}个性化学习方案.pdf`, content);
+    }
+  } else {
+    for (const student of students) {
+      const filename = `${student.studentName}个性化学习方案.pdf`;
+      const content = await buildPdfDocument(
+        filename.replace(/\.pdf$/i, ""),
+        buildFallbackPdfLines(student),
+        pdfFontBytes!
+      );
+      archive.file(filename, content);
+    }
   }
 
   return archive.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+}
+
+async function convertDocxTemplatesToPdf(templateBuffer: Buffer, students: SheetStudentRow[]) {
+  const officeBinary = await findLibreOfficeBinary();
+  const tempDir = await mkdtemp(path.join(tmpdir(), "course-plan-"));
+  const profileUrl = pathToFileURL(path.join(tempDir, "libreoffice-profile")).href;
+
+  try {
+    const documents = await Promise.all(
+      students.map(async (student, index) => {
+        const baseName = `course-plan-${index + 1}`;
+        const docxPath = path.join(tempDir, `${baseName}.docx`);
+        const pdfPath = path.join(tempDir, `${baseName}.pdf`);
+        const content = await buildDocxFromTemplate(templateBuffer, student);
+        await writeFile(docxPath, content);
+        return { student, docxPath, pdfPath };
+      })
+    );
+
+    await execFileAsync(
+      officeBinary,
+      [
+        `-env:UserInstallation=${profileUrl}`,
+        "--headless",
+        "--convert-to",
+        "pdf",
+        "--outdir",
+        tempDir,
+        ...documents.map(({ docxPath }) => docxPath)
+      ],
+      {
+        windowsHide: true,
+        timeout: Math.min(600000, Math.max(120000, students.length * 10000))
+      }
+    );
+
+    return Promise.all(
+      documents.map(async ({ student, pdfPath }) => ({
+        student,
+        content: await readFile(pdfPath)
+      }))
+    );
+  } catch {
+    throw new Error(
+      "未找到可用的 LibreOffice PDF 转换环境，请在服务器安装 libreoffice 和 libreoffice-writer，或配置 LIBREOFFICE_BIN"
+    );
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function findLibreOfficeBinary() {
+  for (const candidate of OFFICE_CANDIDATES) {
+    try {
+      if (candidate.includes(path.sep) || candidate.includes("\\")) {
+        await access(candidate);
+      }
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error(
+    "未找到可用的 LibreOffice PDF 转换环境，请在服务器安装 libreoffice 和 libreoffice-writer，或配置 LIBREOFFICE_BIN"
+  );
+}
+
+async function buildPdfDocument(title: string, lines: string[], pdfFontBytes: Uint8Array) {
+  const pdf = await PDFDocument.create();
+  pdf.registerFontkit(fontkit);
+
+  const font = await pdf.embedFont(pdfFontBytes, { subset: false });
+  let page = pdf.addPage([A4_WIDTH, A4_HEIGHT]);
+  let cursorY = A4_HEIGHT - PAGE_MARGIN;
+
+  const drawWrappedLine = (text: string, size: number) => {
+    const wrapped = wrapText(text, font, size, A4_WIDTH - PAGE_MARGIN * 2);
+    for (const line of wrapped) {
+      if (cursorY < PAGE_MARGIN + LINE_HEIGHT) {
+        page = pdf.addPage([A4_WIDTH, A4_HEIGHT]);
+        cursorY = A4_HEIGHT - PAGE_MARGIN;
+      }
+
+      page.drawText(line, {
+        x: PAGE_MARGIN,
+        y: cursorY,
+        size,
+        font,
+        color: rgb(0.12, 0.14, 0.18)
+      });
+      cursorY -= size === TITLE_SIZE ? 28 : LINE_HEIGHT;
+    }
+  };
+
+  drawWrappedLine(title, TITLE_SIZE);
+  cursorY -= 8;
+
+  for (const line of lines) {
+    if (!line.trim()) {
+      cursorY -= 8;
+      continue;
+    }
+    drawWrappedLine(line, BODY_SIZE);
+  }
+
+  return Buffer.from(await pdf.save());
+}
+
+function wrapText(text: string, font: { widthOfTextAtSize: (text: string, size: number) => number }, size: number, maxWidth: number) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return [""];
+
+  const lines: string[] = [];
+  let current = "";
+
+  for (const char of normalized) {
+    const next = `${current}${char}`;
+    if (font.widthOfTextAtSize(next, size) <= maxWidth) {
+      current = next;
+      continue;
+    }
+
+    if (current) {
+      lines.push(current);
+      current = char;
+    } else {
+      lines.push(char);
+    }
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines;
+}
+
+async function loadPdfFontBytes() {
+  for (const candidate of PDF_FONT_CANDIDATES) {
+    try {
+      await access(candidate);
+      return new Uint8Array(await readFile(candidate));
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error("未找到可用的中文字体，请在服务器安装可读的中文字体，或配置 COURSE_PLAN_FONT_PATH");
 }
 
 async function buildDocxFromTemplate(templateBuffer: Buffer, student: SheetStudentRow) {
@@ -184,33 +368,12 @@ function normalizeLabel(value: string) {
   return value.replace(/[\s:：]/g, "");
 }
 
-function buildFallbackWordHtml(student: SheetStudentRow) {
-  const studentName = escapeHtml(student.studentName);
-  const score = escapeHtml(student.score);
-
-  return `<!doctype html>
-<html>
-  <head>
-    <meta charset="UTF-8">
-    <style>
-      body { font-family: "Microsoft YaHei", Arial, sans-serif; color: #202124; }
-      h1 { font-size: 24px; margin: 24px 0; }
-      table { width: 100%; border-collapse: collapse; font-size: 16px; }
-      td { border: 1px solid #c8cdd5; padding: 12px 16px; line-height: 1.7; }
-      td:first-child { width: 180px; background: #f7f9fc; }
-    </style>
-  </head>
-  <body>
-    <h1>${studentName}专属冲刺班课程规划</h1>
-    <table>
-      <tr><td>姓名</td><td>${studentName}</td></tr>
-      <tr><td>综合成绩</td><td>${score}</td></tr>
-      <tr><td>编程猫班主任</td><td>择一老师</td></tr>
-      <tr><td>录取结果</td><td>已录取冲刺班</td></tr>
-      <tr><td>录取详情</td><td>恭喜通过编程猫教学中心审核，符合【冲刺班】入学标准，予以录取</td></tr>
-      <tr><td>学习目标</td><td>学习6个月，进行专注力、表达能力、思维能力训练，达到国家编程二级考证水平，对标省级白名单赛事</td></tr>
-      <tr><td>录取时间</td><td>2026年XX月XX日</td></tr>
-    </table>
-  </body>
-</html>`;
+function buildFallbackPdfLines(student: SheetStudentRow) {
+  return [
+    `学生姓名：${student.studentName}`,
+    `综合成绩：${student.score}`,
+    `负责老师：${student.teacherName || "未分配老师"}`,
+    "课程建议：根据当前成绩制定阶段性学习计划，并定期复盘。",
+    `生成日期：${new Date().toLocaleDateString("zh-CN")}`
+  ];
 }
