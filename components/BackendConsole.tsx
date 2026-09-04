@@ -388,7 +388,7 @@ function Dashboard({
     setStatus(
       `${label}导入完成：新增 ${data.importedCount} 条，更新 ${data.updatedCount ?? 0} 条，自动生成方案 ${
         data.generatedPlanCount ?? 0
-      } 条${data.archiveWarning ? `；${data.archiveWarning}` : ""}`
+      } 条${data.planWarning ? `；${data.planWarning}` : ""}${data.archiveWarning ? `；${data.archiveWarning}` : ""}`
     );
     await refreshOverview();
   }
@@ -420,22 +420,28 @@ function Dashboard({
       return;
     }
 
-    const response = await fetch("/api/teacher/students", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        studentName,
-        score,
-        programType: newStudentProgramType,
-        courseLine: newStudentCourseLine,
-        homeworkLessonCount: newStudentHomeworkLessonCount,
-        videoCount: newStudentVideoCount,
-        messageCount: newStudentMessageCount
-      })
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      setStatus(data.message ?? "添加学生失败");
+    let data: Record<string, any>;
+    try {
+      const response = await fetch("/api/teacher/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentName,
+          score,
+          programType: newStudentProgramType,
+          courseLine: newStudentCourseLine,
+          homeworkLessonCount: newStudentHomeworkLessonCount,
+          videoCount: newStudentVideoCount,
+          messageCount: newStudentMessageCount
+        })
+      });
+      data = await readResponseJson(response);
+      if (!response.ok) {
+        setStatus(data.message ?? "添加学生失败");
+        return;
+      }
+    } catch {
+      setStatus("无法连接服务器，请稍后重试");
       return;
     }
 
@@ -446,7 +452,7 @@ function Dashboard({
     setNewStudentHomeworkLessonCount("");
     setNewStudentVideoCount("");
     setNewStudentMessageCount("");
-    setStatus(`${studentName} 已添加，学习方案链接已自动生成`);
+    setStatus(data.planWarning ?? `${studentName} 已添加，学习方案链接已自动生成`);
     await refreshOverview();
   }
 

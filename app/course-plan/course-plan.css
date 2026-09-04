@@ -1302,6 +1302,117 @@ body:has(.app-shell) {
   font-size: 7px;
 }
 
+.seat-success-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(35, 25, 27, 0.55);
+  backdrop-filter: blur(6px);
+  animation: seat-dialog-backdrop-in 0.24s ease-out both;
+}
+
+.seat-success-dialog {
+  position: relative;
+  width: min(100%, 360px);
+  padding: 34px 24px 24px;
+  border: 1px solid rgba(185, 21, 28, 0.18);
+  border-radius: 8px;
+  color: #261c1e;
+  background: #fffaf8;
+  box-shadow: 0 28px 70px rgba(65, 23, 27, 0.3);
+  text-align: center;
+  animation: seat-dialog-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.seat-success-dialog__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #806e72;
+  background: transparent;
+}
+
+.seat-success-dialog__icon {
+  display: grid;
+  width: 66px;
+  height: 66px;
+  margin: 0 auto 15px;
+  place-items: center;
+  border: 1px solid rgba(216, 189, 122, 0.7);
+  border-radius: 50%;
+  color: #fffaf0;
+  background: #a98b49;
+  box-shadow: 0 10px 24px rgba(169, 139, 73, 0.24);
+}
+
+.seat-success-dialog__eyebrow {
+  margin: 0 0 7px;
+  color: #9d777b;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.seat-success-dialog h2 {
+  margin: 0;
+  color: #7f1017;
+  font-size: 27px;
+  line-height: 1.3;
+}
+
+.seat-success-dialog__message {
+  margin: 17px 0 5px;
+  color: #594b4e;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.seat-success-dialog > strong {
+  display: block;
+  color: #b9151c;
+  font-size: 19px;
+  line-height: 1.5;
+}
+
+.seat-success-dialog__time {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 19px 0;
+  border: 1px solid rgba(169, 139, 73, 0.22);
+  border-radius: 7px;
+  color: #725f3d;
+  background: #f7eedb;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.seat-success-dialog__confirm {
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 7px;
+  color: #fff;
+  background: #21483e;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 10px 22px rgba(33, 72, 62, 0.2);
+}
+
 .app-shell .toast {
   position: fixed;
   z-index: 60;
@@ -1375,6 +1486,16 @@ body:has(.app-shell) {
 @keyframes toast-in {
   from { opacity: 0; transform: translate(-50%, -14px); }
   to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes seat-dialog-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes seat-dialog-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @media (max-width: 680px) {

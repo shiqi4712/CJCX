@@ -81,6 +81,45 @@ function ExpandableImage({
   );
 }
 
+function SeatSuccessDialog({
+  student,
+  courseTime,
+  onClose
+}: {
+  student: string;
+  courseTime: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="seat-success-backdrop" role="presentation" onClick={(event) => { if (event.currentTarget === event.target) onClose(); }}>
+      <section className="seat-success-dialog" role="dialog" aria-modal="true" aria-labelledby="seat-success-title">
+        <button className="seat-success-dialog__close" type="button" onClick={onClose} aria-label="关闭提示" title="关闭提示"><X size={19} /></button>
+        <span className="seat-success-dialog__icon" aria-hidden="true"><CheckCircle2 size={34} /></span>
+        <p className="seat-success-dialog__eyebrow">{student}的学习席位</p>
+        <h2 id="seat-success-title">学位锁定成功</h2>
+        <p className="seat-success-dialog__message">请联系上课老师</p>
+        <strong>关注今晚19点直播间</strong>
+        <div className="seat-success-dialog__time"><CalendarDays size={15} /> 已确认 {courseTime}</div>
+        <button className="seat-success-dialog__confirm" type="button" onClick={onClose}><Check size={17} strokeWidth={3} /> 我知道了</button>
+      </section>
+    </div>,
+    document.body
+  );
+}
+
 function decodePayload(encoded: string): CoursePlanPayload {
   const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
@@ -288,21 +327,20 @@ function SeatView({ payload, onBack, onReturnToQuery, onSaved }: { payload: Cour
 export function CoursePlanViewer() {
   const [payload, setPayload] = useState<CoursePlanPayload>({ student: "学生", courseLine: "moon" });
   const [view, setView] = useState<ViewId>("roadmap");
-  const [toast, setToast] = useState<{ type: "success" | "error"; title: string; copy: string } | null>(null);
+  const [confirmedCourseTime, setConfirmedCourseTime] = useState<string | null>(null);
   useEffect(() => { setPayload(readPayloadFromLocation()); }, []);
   useEffect(() => { document.title = `${payload.student || "学生"}编程学习方案`; }, [payload.student]);
-  useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(null), 3200); return () => window.clearTimeout(timer); }, [toast]);
   function navigate(nextView: ViewId) { setView(nextView); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function returnToResult() {
     const student = payload.student?.trim();
     window.location.href = student && student !== "学生" ? `/result?name=${encodeURIComponent(student)}` : "/";
   }
-  function handleSaved(courseTime: string) { setPayload((current) => ({ ...current, preferredCourseTime: courseTime })); setToast({ type: "success", title: "学位确认成功", copy: `已保存上课时间：${courseTime}` }); }
+  function handleSaved(courseTime: string) { setPayload((current) => ({ ...current, preferredCourseTime: courseTime })); setConfirmedCourseTime(courseTime); }
   return (
     <main className={`app-shell ${view === "seat" ? "app-shell--seat" : ""}`}>
       <AppHeader view={view} student={payload.student || "学生"} onNavigate={navigate} onLogout={() => { window.location.href = "/"; }} />
       <div key={view} className="page-enter">{view === "roadmap" ? <RoadmapView payload={payload} onBack={returnToResult} onNext={() => navigate("consensus")} /> : null}{view === "consensus" ? <ConsensusView onNext={() => navigate("seat")} /> : null}{view === "seat" ? <SeatView payload={payload} onBack={() => navigate("consensus")} onReturnToQuery={() => { window.location.href = "/"; }} onSaved={handleSaved} /> : null}</div>
-      {toast ? <div className={`toast toast--${toast.type}`} role="status" aria-live="polite"><span className="toast__icon"><Check size={17} strokeWidth={3} /></span><div><p className="text-sm font-semibold text-slate-900">{toast.title}</p><p className="mt-0.5 text-xs text-slate-500">{toast.copy}</p></div></div> : null}
+      {confirmedCourseTime ? <SeatSuccessDialog student={payload.student || "孩子"} courseTime={confirmedCourseTime} onClose={() => setConfirmedCourseTime(null)} /> : null}
     </main>
   );
 }

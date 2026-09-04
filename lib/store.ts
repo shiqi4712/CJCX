@@ -806,7 +806,10 @@ export async function importStudents(rows: SheetStudentRow[]) {
     result[0]?.inserted ? (importedCount += 1) : (updatedCount += 1);
   }
 
-  return { importedCount, updatedCount, affectedStudentIds, totalCount: (await getOverview("admin")).stats.studentCount };
+  const totalCount = hasDatabase()
+    ? Number((await getSql().query("SELECT COUNT(*) AS total_count FROM students"))[0]?.total_count ?? 0)
+    : memory.students.length;
+  return { importedCount, updatedCount, affectedStudentIds, totalCount };
 }
 
 export async function importTeachers(rows: SheetTeacherRow[]) {
