@@ -123,7 +123,8 @@ export function parseCoursePlanLine(value?: string | null): CoursePlanLineId {
   const text = (value ?? "").trim();
   if (!text) return DEFAULT_COURSE_PLAN_LINE;
   const normalized = normalizeCoursePlanLine(text);
-  const recognized = /python|^py$/i.test(text) || text.includes("探月") || text.includes("小火箭");
+  const key = text.toLowerCase();
+  const recognized = key in COURSE_PLAN_LINES || key === "py" || text.includes("探月") || text.includes("小火箭");
   if (!recognized) {
     throw new Error(`课线“${text}”无效，请填写 Python、探月或小火箭`);
   }

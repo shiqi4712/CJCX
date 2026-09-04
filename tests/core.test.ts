@@ -32,7 +32,7 @@ import {
   resetStudentQuery,
   resetMemoryStoreForTests
 } from "../lib/store";
-import { buildCoursePlanData, getCoursePlanLine, normalizeCoursePlanLine } from "../lib/course-plan-config";
+import { buildCoursePlanData, getCoursePlanLine, normalizeCoursePlanLine, parseCoursePlanLine } from "../lib/course-plan-config";
 
 process.env.SESSION_SECRET = "test-session-secret-with-sufficient-entropy";
 delete process.env.DATABASE_URL;
@@ -203,6 +203,7 @@ test("duplicate imports update records and teachers only see assigned students",
 });
 
 test("student course-line import normalizes supported values and rejects unknown lines", () => {
+  assert.deepEqual(["python", "moon", "rocket"].map((line) => parseCoursePlanLine(line)), ["python", "moon", "rocket"]);
   const rows = toStudentRows([
     { 学生姓名: "课线Python", 成绩: "A+", 课线: "PYTHON" },
     { 学生姓名: "课线探月", 成绩: "A+", 课程线: "探月" },
