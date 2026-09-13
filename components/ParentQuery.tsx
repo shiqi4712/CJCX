@@ -1,10 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getProgramQueryTitle, normalizeProgramType } from "@/lib/programs";
 
 export function ParentQuery() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const programType = normalizeProgramType(searchParams.get("program"));
+  const title = getProgramQueryTitle(programType);
   const [studentName, setStudentName] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,18 +28,21 @@ export function ParentQuery() {
 
   return (
     <main className="parent-shell">
-      <section className="query-hero" aria-label="英才班录取结果查询">
+      <section className="query-hero" aria-label={title}>
         <header className="brand-strip">
-          <img src="/images/lab-logo-white.png" alt="北大-点猫科技人工智能教育联合实验室" />
+          <img src="/images/parent-login-logo.png" alt="北大-点猫科技人工智能教育联合实验室" />
         </header>
 
         <div className="hero-copy">
-          <p>编程猫在线教育中心</p>
-          <h1>英才班录取结果查询</h1>
-          <span>输入学员姓名，查看本次选拔录取结果</span>
+          <p>学编程，就选</p>
+          <strong className="hero-brand-slogan">北大认可品牌！</strong>
         </div>
 
         <form className="lookup-panel" onSubmit={handleSubmit}>
+          <div className="lookup-intro">
+            <h1>{title}</h1>
+            <span>输入学员姓名，查看本次选拔录取结果</span>
+          </div>
           <label>
             <span>学员姓名</span>
             <input
@@ -48,7 +55,6 @@ export function ParentQuery() {
           <button type="submit" disabled={loading}>
             {loading ? "查询中..." : "查询录取结果"}
           </button>
-          <p>查询结果仅用于本次课程报名与学习规划参考。</p>
         </form>
       </section>
 
