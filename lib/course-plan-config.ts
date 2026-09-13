@@ -106,28 +106,6 @@ export const COURSE_PLAN_LINES: Record<CoursePlanLineId, CoursePlanLine> = {
     goalImage: "/images/course-plan/rocket-goal.jpg",
     planDetailImage: "/images/course-plan/rocket-plan-detail.jpg",
     scheduleImage: "/images/course-plan/rocket-schedule.png"
-  },
-  preschool: {
-    id: "preschool",
-    name: "幼儿",
-    targetClass: "英才班",
-    period: "6个月",
-    weekly: "每周1次",
-    officialHours: "按规划安排",
-    giftHours: "阶段辅导",
-    totalHours: "按规划安排",
-    examTarget: "全国性幼儿编程创赛展",
-    price: "以顾问报价为准",
-    priceNote: "适合幼儿阶段建立编程兴趣、逻辑思维与表达能力。",
-    focusDefault: "编程启蒙、逻辑思维、创造表达",
-    goalDefault: "通过项目实践与互动训练，建立幼儿阶段的编程思维基础",
-    scheduleText: "根据幼儿作息安排学习时间，可提前预约老师直播辅导。",
-    coursePromise: "以趣味项目和互动任务建立稳定学习兴趣。",
-    classPromise: "英才班小班带教，老师持续关注孩子的理解与表达。",
-    pathPromise: "围绕思维、知识和生活迁移设计六个月成长路径。",
-    goalImage: "/images/course-plan/yingcai-preschool/goals.png",
-    planDetailImage: "/images/course-plan/yingcai-preschool/syllabus.jpeg",
-    scheduleImage: "/images/course-plan/yingcai-preschool/schedule.png"
   }
 };
 
@@ -136,7 +114,6 @@ export function normalizeCoursePlanLine(value?: string | null): CoursePlanLineId
   if (text === "python" || text === "py" || text.includes("python")) return "python";
   if (text === "moon" || text.includes("探月")) return "moon";
   if (text === "rocket" || text.includes("小火箭")) return "rocket";
-  if (text === "preschool" || text.includes("幼儿")) return "preschool";
   // Legacy links used class-plan ids; keep them opening with the former graphical curriculum default.
   if (["talent", "kete", "yucai"].includes(text)) return "moon";
   return DEFAULT_COURSE_PLAN_LINE;
@@ -147,14 +124,9 @@ export function parseCoursePlanLine(value?: string | null): CoursePlanLineId {
   if (!text) return DEFAULT_COURSE_PLAN_LINE;
   const normalized = normalizeCoursePlanLine(text);
   const key = text.toLowerCase();
-  const recognized =
-    key in COURSE_PLAN_LINES ||
-    key === "py" ||
-    text.includes("探月") ||
-    text.includes("小火箭") ||
-    text.includes("幼儿");
+  const recognized = key in COURSE_PLAN_LINES || key === "py" || text.includes("探月") || text.includes("小火箭");
   if (!recognized) {
-    throw new Error(`课线“${text}”无效，请填写 Python、探月、小火箭或幼儿`);
+    throw new Error(`课线“${text}”无效，请填写 Python、探月或小火箭`);
   }
   return normalized;
 }

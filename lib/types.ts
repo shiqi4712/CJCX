@@ -1,7 +1,7 @@
 import type { ProgramType } from "./programs";
 
 export type Role = "admin" | "teacher";
-export type LearningCourseLine = "python" | "moon" | "rocket" | "preschool";
+export type LearningCourseLine = "python" | "moon" | "rocket";
 
 export type Student = {
   id: string;

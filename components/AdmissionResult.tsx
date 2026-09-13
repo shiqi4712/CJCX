@@ -10,7 +10,6 @@ import {
   normalizeProgramType
 } from "@/lib/programs";
 import { normalizeCoursePlanLine, type CoursePlanPayload } from "@/lib/course-plan-config";
-import { resolveCoursePlanProfileId } from "@/lib/course-plan-profiles";
 import { buildPerformanceRatings as buildPerformanceRatingsFromCounts } from "@/lib/performance-ratings";
 import { getAbilityRankByOverallScore } from "@/lib/result-scoring";
 
@@ -134,7 +133,6 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
     preferredCourseTime: result.preferredCourseTime,
     showPrice: true
   };
-  const planProfileId = resolveCoursePlanProfileId(planPayload.courseLine, result.recommendedClass || result.programType);
 
   return (
     <section className={`certificate ${admitted ? "" : "not-admitted"}`}>
@@ -253,7 +251,7 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
 
             <Link
               className="course-plan-button"
-              href={`/course-plan/${planProfileId}#p=${encodePlanPayload(planPayload)}`}
+              href={`/course-plan#p=${encodePlanPayload(planPayload)}`}
               aria-label={`查看${result.studentName}专属学习规划`}
             >
               <span>查看专属学习规划</span>
