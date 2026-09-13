@@ -8,6 +8,7 @@
 | --- | --- |
 | 育才班·火箭 | /course-plan/yucai-rocket |
 | 育才班·幼儿 | /course-plan/yucai-preschool |
+| 英才班·幼儿 | /course-plan/yingcai-preschool |
 | 科特班·探月 | /course-plan/kete-moon |
 | 科特班·Python | /course-plan/kete-python |
 | 英才班·Python | /course-plan/yingcai-python |
@@ -22,7 +23,7 @@
 
 在原项目运行 `node scripts/package-course-plans.mjs`。它将当前未提交修改一并打包到 `dist/course-plans-时间戳.zip`，并生成 SHA-256 校验文件。包内仅包含五课线展示所需源码、依赖锁文件、物料、检查脚本和部署配置，不含查询接口、后台页面、学生数据、环境密钥或本机依赖。Demo2 只保留在开发项目，正式发布使用五个固定路径。
 
-包内 `release-manifest.json` 记录每个源文件的 SHA-256。发布包是在 Ubuntu 上安装依赖和构建的源码包；不要直接上传本机 Windows 构建产物。物料导入和打包脚本在原项目维护，服务器使用已生成的物料。
+包内 `release-manifest.json` 记录每个源文件的 SHA-256。发布包是在 Ubuntu 上安装依赖和构建的源码包；不要直接上传本机 Windows 构建产物。物料导入和打包脚本在原项目维护，服务器使用已生成的物料。成绩查询系统的正式更新应使用项目完整仓库部署流程，不要使用这个仅规划展示的精简发布包。
 
 ## Ubuntu 部署步骤
 

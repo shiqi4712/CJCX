@@ -6,6 +6,7 @@
 
 - https://plan.bcmty.cn/course-plan/yucai-rocket
 - https://plan.bcmty.cn/course-plan/yucai-preschool
+- https://plan.bcmty.cn/course-plan/yingcai-preschool
 - https://plan.bcmty.cn/course-plan/kete-moon
 - https://plan.bcmty.cn/course-plan/kete-python
 - https://plan.bcmty.cn/course-plan/yingcai-python
