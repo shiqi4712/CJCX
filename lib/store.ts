@@ -497,9 +497,9 @@ export async function importStudents(rows: SheetStudentRow[]) {
   let updatedCount = 0;
 
   for (const row of rows) {
-    const importedClassName = String(row.programType ?? "").trim();
-    const programType = normalizeProgramType(importedClassName);
     const courseLine = normalizeCoursePlanLine(row.courseLine);
+    const importedClassName = courseLine === "preschool" ? "英才班" : String(row.programType ?? "").trim();
+    const programType = normalizeProgramType(importedClassName);
     const admission = buildAdmissionByScore(row.score, programType, importedClassName);
     const overallScore = generateOverallScore(admission.admission);
     const teacherName = row.teacherName && row.teacherName !== "未分配老师" ? row.teacherName : null;
@@ -839,9 +839,9 @@ export async function updateStudent(
   const studentName = input.studentName ?? current.studentName;
   const score = input.score ?? current.score;
   const teacherName = input.teacherName ?? current.teacherName;
-  const importedClassName = String(input.programType ?? current.className).trim();
-  const programType = normalizeProgramType(importedClassName);
   const courseLine = normalizeCoursePlanLine(input.courseLine ?? current.courseLine);
+  const importedClassName = courseLine === "preschool" ? "英才班" : String(input.programType ?? current.className).trim();
+  const programType = normalizeProgramType(importedClassName);
   const published = input.published ?? current.published;
   const preferredCourseTime = input.preferredCourseTime ?? current.preferredCourseTime;
   const homeworkLessonCount = current.homeworkLessonCount;

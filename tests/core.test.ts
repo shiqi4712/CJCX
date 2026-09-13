@@ -202,16 +202,17 @@ test("duplicate imports update records and teachers only see assigned students",
 });
 
 test("student course-line import normalizes supported values and rejects unknown lines", () => {
-  assert.deepEqual(["python", "moon", "rocket"].map((line) => parseCoursePlanLine(line)), ["python", "moon", "rocket"]);
+  assert.deepEqual(["python", "moon", "rocket", "preschool"].map((line) => parseCoursePlanLine(line)), ["python", "moon", "rocket", "preschool"]);
   const rows = toStudentRows([
     { 学生姓名: "课线Python", 成绩: "A+", 课线: "PYTHON" },
     { 学生姓名: "课线探月", 成绩: "A+", 课程线: "探月" },
-    { 学生姓名: "课线火箭", 成绩: "A+", 课程课线: "小火箭" }
+    { 学生姓名: "课线火箭", 成绩: "A+", 课程课线: "小火箭" },
+    { 学生姓名: "课线幼儿", 成绩: "A+", 课线: "幼儿", 班级类型: "英才班" }
   ]);
-  assert.deepEqual(rows.map((row) => row.courseLine), ["python", "moon", "rocket"]);
+  assert.deepEqual(rows.map((row) => row.courseLine), ["python", "moon", "rocket", "preschool"]);
   assert.throws(
     () => toStudentRows([{ 学生姓名: "未知课线", 成绩: "A+", 课线: "Java" }]),
-    /请填写 Python、探月或小火箭/
+    /请填写 Python、探月、小火箭或幼儿/
   );
 });
 
@@ -230,6 +231,17 @@ test("student program type controls admitted class display", async () => {
   assert.equal(overview.students.find((student) => student.studentName === "育才学生")?.className, "育才班");
   assert.equal(overview.students.find((student) => student.studentName === "特训学生")?.programType, "英才特训营");
   assert.equal(overview.students.find((student) => student.studentName === "特训学生")?.className, "特训营");
+});
+
+test("preschool course line is always stored as English-talent class", async () => {
+  await importStudents([
+    { studentName: "幼儿课线学生", score: "A+", teacherName: "未分配老师", courseLine: "preschool" }
+  ]);
+
+  const student = (await getOverview("admin")).students.find((item) => item.studentName === "幼儿课线学生");
+  assert.ok(student);
+  assert.equal(student.courseLine, "preschool");
+  assert.equal(student.className, "英才班");
 });
 
 test("special training program uses parent-facing display copy", () => {
