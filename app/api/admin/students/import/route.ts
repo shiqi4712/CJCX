@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           message:
-            "表头为：学生姓名、成绩、老师姓名、班级类型、课线、战区、作业次数、视频次数、学生消息数。学生姓名和成绩必填；课线可填 Python、探月或小火箭。"
+            "表头为：学生姓名、成绩、老师姓名、班级类型、课线、战区、作业次数、视频次数、学生消息数。学生姓名和成绩必填；课线可填 Python、探月、小火箭或幼儿。Python 英才班和幼儿课线请填写英才班。"
         },
         { status: 400 }
       );

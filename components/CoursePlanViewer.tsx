@@ -19,7 +19,8 @@ import {
   ZoomIn
 } from "lucide-react";
 import {
-  getCoursePlanLine,
+  getCoursePlanLineForPayload,
+  isYingcaiClass,
   normalizeCoursePlanLine,
   type CoursePlanPayload
 } from "@/lib/course-plan-config";
@@ -188,11 +189,12 @@ function BottomAction({ label, icon: Icon, onClick, secondaryAction }: { label: 
 }
 
 function RoadmapView({ payload, onBack, onNext }: { payload: CoursePlanPayload; onBack: () => void; onNext: () => void }) {
-  const courseLine = getCoursePlanLine(payload.courseLine);
+  const courseLine = getCoursePlanLineForPayload(payload);
+  const usesNewTalentMaterial = courseLine.id === "preschool" || (courseLine.id === "python" && isYingcaiClass(payload.targetClass));
   return (
     <section className="page roadmap-page page--with-action">
       <div className="page-heading page-heading--stacked"><p className="eyebrow">个性化成长路径</p><h1>专属6个月学习目标</h1><p>学习目标、学科知识与赛事目标同步规划。</p></div>
-      <ExpandableImage triggerClassName="competition-plan-image-trigger" imageClassName="competition-plan-image" src={courseLine.goalImage} alt={`${courseLine.name}课线学习目标`} />
+      <ExpandableImage triggerClassName={`competition-plan-image-trigger${usesNewTalentMaterial ? " competition-plan-image-trigger--flat" : ""}`} imageClassName="competition-plan-image" src={courseLine.goalImage} alt={`${courseLine.name}课线学习目标`} />
       <section className="monthly-plan-section">
         <div className="monthly-plan-section__heading"><div><p>6 MONTH PLAN</p><h2>六个月学习规划</h2></div><span>共 6 个月</span></div>
         <ExpandableImage triggerClassName="plan-detail-image-trigger" imageClassName={`plan-detail-image plan-detail-image--${courseLine.id}`} src={courseLine.planDetailImage} alt={`${courseLine.name}课线六个月学习规划明细`} />
@@ -277,7 +279,7 @@ function ConsensusView({ onNext }: { onNext: () => void }) {
 }
 
 function SeatView({ payload, onBack, onReturnToQuery, onSaved }: { payload: CoursePlanPayload; onBack: () => void; onReturnToQuery: () => void; onSaved: (courseTime: string) => void }) {
-  const courseLine = getCoursePlanLine(payload.courseLine);
+  const courseLine = getCoursePlanLineForPayload(payload);
   const initial = splitStoredCourseTime(payload.preferredCourseTime);
   const [selectedDay, setSelectedDay] = useState(initial.day);
   const [selectedTime, setSelectedTime] = useState(initial.time);

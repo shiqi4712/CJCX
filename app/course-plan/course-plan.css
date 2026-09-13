@@ -1571,6 +1571,16 @@ body:has(.app-shell) {
   box-shadow: 0 14px 32px rgba(111, 51, 48, 0.14);
 }
 
+/* The supplied talent posters already contain their own composition and framing. */
+.app-shell .competition-plan-image-trigger--flat .competition-plan-image {
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  object-fit: contain;
+}
+
 .app-shell .family-letter {
   color: #52272a;
   border-color: rgba(151, 62, 65, 0.24);

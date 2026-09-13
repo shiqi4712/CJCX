@@ -31,7 +31,7 @@ import {
   resetStudentQuery,
   resetMemoryStoreForTests
 } from "../lib/store";
-import { buildCoursePlanData, getCoursePlanLine, normalizeCoursePlanLine, parseCoursePlanLine } from "../lib/course-plan-config";
+import { buildCoursePlanData, getCoursePlanLine, getCoursePlanLineForPayload, normalizeCoursePlanLine, parseCoursePlanLine } from "../lib/course-plan-config";
 
 process.env.SESSION_SECRET = "test-session-secret-with-sufficient-entropy";
 delete process.env.DATABASE_URL;
@@ -202,17 +202,31 @@ test("duplicate imports update records and teachers only see assigned students",
 });
 
 test("student course-line import normalizes supported values and rejects unknown lines", () => {
-  assert.deepEqual(["python", "moon", "rocket"].map((line) => parseCoursePlanLine(line)), ["python", "moon", "rocket"]);
+  assert.deepEqual(["python", "moon", "rocket", "preschool"].map((line) => parseCoursePlanLine(line)), ["python", "moon", "rocket", "preschool"]);
   const rows = toStudentRows([
     { 学生姓名: "课线Python", 成绩: "A+", 课线: "PYTHON" },
     { 学生姓名: "课线探月", 成绩: "A+", 课程线: "探月" },
-    { 学生姓名: "课线火箭", 成绩: "A+", 课程课线: "小火箭" }
+    { 学生姓名: "课线火箭", 成绩: "A+", 课程课线: "小火箭" },
+    { 学生姓名: "课线幼儿", 成绩: "A+", 课线: "幼儿", 班级类型: "英才班" }
   ]);
-  assert.deepEqual(rows.map((row) => row.courseLine), ["python", "moon", "rocket"]);
+  assert.deepEqual(rows.map((row) => row.courseLine), ["python", "moon", "rocket", "preschool"]);
   assert.throws(
     () => toStudentRows([{ 学生姓名: "未知课线", 成绩: "A+", 课线: "Java" }]),
-    /请填写 Python、探月或小火箭/
+    /请填写 Python、探月、小火箭或幼儿/
   );
+});
+
+test("course plan keeps the original page and swaps only new-line materials", () => {
+  const pythonYingcai = getCoursePlanLineForPayload({ courseLine: "python", targetClass: "英才班" });
+  const pythonKete = getCoursePlanLineForPayload({ courseLine: "python", targetClass: "科特班" });
+  const preschool = getCoursePlanLineForPayload({ courseLine: "preschool", targetClass: "英才班" });
+  assert.match(pythonYingcai.goalImage, /python-yingcai-goal/);
+  assert.match(pythonYingcai.planDetailImage, /python-yingcai-plan-detail/);
+  assert.match(pythonYingcai.scheduleImage, /python-yingcai-schedule/);
+  assert.equal(pythonKete.goalImage, getCoursePlanLine("python").goalImage);
+  assert.match(preschool.goalImage, /preschool-yingcai-goal/);
+  assert.match(preschool.planDetailImage, /preschool-yingcai-plan-detail/);
+  assert.match(preschool.scheduleImage, /preschool-yingcai-schedule/);
 });
 
 test("student program type controls admitted class display", async () => {
