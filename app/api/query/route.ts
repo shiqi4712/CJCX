@@ -2,11 +2,24 @@ import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { getQueryReleaseState, queryStudentByName, recordPendingReviewQuery } from "@/lib/store";
 import { cleanName } from "@/lib/validation";
+import { queryScopeForHost, queryScopeForEntry } from "@/lib/query-scope";
 
 const QUERY_REVIEW_MESSAGE = "教学中心成绩审核进行中，请您耐心等待";
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { studentName?: string } | null;
+  const body = (await request.json().catch(() => null)) as { studentName?: string; entry?: unknown } | null;
+  let scope;
+  try {
+    scope = queryScopeForHost(request.headers.get("host") ?? new URL(request.url).host);
+    if (body?.entry !== undefined) {
+      if (typeof body.entry !== "string") throw new Error("Invalid entry");
+      const entryScope = queryScopeForEntry(body.entry);
+      if (scope && (scope.courseLine !== entryScope.courseLine || scope.yingcai !== entryScope.yingcai)) throw new Error("Conflicting entry");
+      scope = entryScope;
+    }
+  } catch {
+    return NextResponse.json({ message: "请通过老师提供的课线查询地址访问" }, { status: 400 });
+  }
   const studentName = cleanName(body?.studentName);
 
   if (!studentName) {
@@ -29,11 +42,11 @@ export async function POST(request: Request) {
   };
 
   if (!releaseState.open) {
-    await recordPendingReviewQuery(studentName);
+    await recordPendingReviewQuery(studentName, scope);
     return NextResponse.json({ message: QUERY_REVIEW_MESSAGE }, { status: 423, headers: diagnosticHeaders });
   }
 
-  const student = await queryStudentByName(studentName);
+  const student = await queryStudentByName(studentName, scope);
 
   if (!student) {
     return NextResponse.json({ message: QUERY_REVIEW_MESSAGE }, { status: 404, headers: diagnosticHeaders });
@@ -42,6 +55,7 @@ export async function POST(request: Request) {
   return NextResponse.json(
     {
       studentId: student.id,
+      entry: body?.entry,
       studentName: student.studentName,
       score: student.score,
       overallScore: student.overallScore,

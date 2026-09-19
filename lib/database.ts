@@ -207,6 +207,8 @@ async function initializePostgresSchema(sql: SqlClient) {
     "ALTER TABLE query_logs ADD CONSTRAINT query_logs_result_status_check CHECK (result_status IN ('success', 'not_found', 'pending_review'))"
   );
 
+  await sql.query("CREATE UNIQUE INDEX IF NOT EXISTS students_scoped_identity ON students(normalized_name, teacher_name, course_line, class_name)");
+  await sql.query("ALTER TABLE students DROP CONSTRAINT IF EXISTS students_normalized_name_teacher_name_key");
   await sql.query("CREATE INDEX IF NOT EXISTS students_query_idx ON students(normalized_name, published, created_at)");
   await sql.query("CREATE INDEX IF NOT EXISTS students_teacher_idx ON students(teacher_name)");
   await sql.query("CREATE INDEX IF NOT EXISTS query_logs_time_idx ON query_logs(queried_at DESC)");
@@ -310,6 +312,12 @@ async function initializeMySqlSchema(sql: SqlClient) {
   await addMySqlColumnIfMissing(sql, "query_logs", "matched_student_name", "varchar(50)");
   await addMySqlColumnIfMissing(sql, "query_logs", "matched_teacher_name", "varchar(50)");
 
+  const scopedIndex = await sql.query("SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='students' AND INDEX_NAME='students_scoped_identity' LIMIT 1");
+  if (!scopedIndex.length) {
+    await sql.query("CREATE UNIQUE INDEX students_scoped_identity ON students(normalized_name, teacher_name, course_line, class_name)");
+  }
+  const legacyIndex = await sql.query("SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='students' AND INDEX_NAME='students_unique_name_teacher' LIMIT 1");
+  if (legacyIndex.length) await sql.query("ALTER TABLE students DROP INDEX students_unique_name_teacher");
   await createMySqlIndexIfMissing(sql, "students", "students_query_idx", "normalized_name, published, created_at");
   await createMySqlIndexIfMissing(sql, "students", "students_teacher_idx", "teacher_name");
   await createMySqlIndexIfMissing(sql, "query_logs", "query_logs_time_idx", "queried_at");

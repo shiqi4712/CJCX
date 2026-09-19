@@ -735,6 +735,7 @@ function Dashboard({
 
       <section className="tool-panel wide">
         <h3>单个学员添加</h3>
+        <p>名单按学生姓名、课线、班型匹配：相同组合更新原记录，不同课线或班型分别保留。请准确填写课线和班型。</p>
         <p>{isAdmin ? "仅填写一个学生，添加后默认未分配老师；行为数据留空按 0 计算。" : "仅填写一个学生，添加后自动归属当前老师；行为数据留空按 0 计算。"}</p>
         <form className="single-student-form" onSubmit={addSingleStudent}>
           <label>

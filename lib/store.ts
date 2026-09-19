@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { matchesQueryScope, type QueryScope } from "./query-scope";
 import { ensureSchema, getSql, hasDatabase, requireDatabaseInProduction } from "./database";
 import { normalizeCoursePlanLine } from "./course-plan-config";
 import { hashPassword, verifyPassword } from "./passwords";
@@ -217,13 +218,13 @@ function mapQueryLog(row: Record<string, unknown>): QueryLog {
   };
 }
 
-export async function recordPendingReviewQuery(studentName: string) {
+export async function recordPendingReviewQuery(studentName: string, scope?: QueryScope) {
   await ensureReady();
   const normalized = normalizeName(studentName);
   const queriedAt = nowText();
 
   if (!hasDatabase()) {
-    const student = memory.students.find((item) => item.published && normalizeName(item.studentName) === normalized);
+    const student = memory.students.find((item) => item.published && normalizeName(item.studentName) === normalized && matchesQueryScope(item, scope));
     memory.queryLogs.unshift({
       id: randomUUID(),
       inputStudentName: studentName,
@@ -238,12 +239,12 @@ export async function recordPendingReviewQuery(studentName: string) {
 
   const sql = getSql();
   const rows = (await sql.query(
-    `SELECT id, student_name, teacher_name FROM students
+    `SELECT * FROM students
      WHERE (normalized_name = $1 OR student_name = $2) AND published = true
-     ORDER BY created_at ASC, id ASC LIMIT 1`,
+     ORDER BY created_at ASC, id ASC`,
     [normalized, studentName.trim()]
   )) as unknown as Record<string, unknown>[];
-  const row = rows[0];
+  const row = rows.find((item) => matchesQueryScope(mapStudent(item), scope));
   await sql.query(
     `INSERT INTO query_logs (
        id, input_student_name, matched_student_id, matched_student_name, matched_teacher_name, result_status
@@ -333,12 +334,12 @@ export async function getPendingReviewLogsForExport(role: Role, teacherName?: st
   return rows.map(mapQueryLog);
 }
 
-export async function queryStudentByName(studentName: string) {
+export async function queryStudentByName(studentName: string, scope?: QueryScope) {
   await ensureReady();
   const normalized = normalizeName(studentName);
 
   if (!hasDatabase()) {
-    const student = memory.students.find((item) => item.published && normalizeName(item.studentName) === normalized);
+    const student = memory.students.find((item) => item.published && normalizeName(item.studentName) === normalized && matchesQueryScope(item, scope));
     const queriedAt = nowText();
     memory.queryLogs.unshift({
       id: randomUUID(),
@@ -360,10 +361,10 @@ export async function queryStudentByName(studentName: string) {
   const rows = (await sql.query(
     `SELECT * FROM students
      WHERE (normalized_name = $1 OR student_name = $2) AND published = true
-     ORDER BY created_at ASC, id ASC LIMIT 1`,
+     ORDER BY created_at ASC, id ASC`,
     [normalized, studentName.trim()]
   )) as unknown as Record<string, unknown>[];
-  const row = rows[0];
+  const row = rows.find((item) => matchesQueryScope(mapStudent(item), scope));
   const logId = randomUUID();
 
   if (!row) {
@@ -512,10 +513,11 @@ export async function importStudents(rows: SheetStudentRow[]) {
       const existing = memory.students.find(
         (student) =>
           normalizeName(student.studentName) === normalizeName(row.studentName) &&
-          student.teacherName === (teacherName ?? "未分配老师")
+          student.courseLine === courseLine && student.className === admission.className
       );
       if (existing) {
         Object.assign(existing, {
+          teacherName: teacherName ?? "未分配老师",
           score: row.score,
           overallScore,
           homeworkLessonCount,
@@ -564,16 +566,16 @@ export async function importStudents(rows: SheetStudentRow[]) {
       if (teacherRows.length === 0) throw new Error(`老师账号不存在：${teacherName}`);
     }
 
-    if (!teacherName) {
+    {
       const existing = (await sql.query(
-        "SELECT id FROM students WHERE normalized_name=$1 AND teacher_name IS NULL LIMIT 1",
-        [normalizeName(row.studentName)]
+        "SELECT id FROM students WHERE normalized_name=$1 AND course_line=$2 AND class_name=$3 ORDER BY created_at ASC, id ASC LIMIT 1",
+        [normalizeName(row.studentName), courseLine, admission.className]
       )) as unknown as Array<{ id: string }>;
       if (existing[0]) {
         await sql.query(
           `UPDATE students SET student_name=$2, score=$3, overall_score=$4, program_type=$5, war_zone=$6, admission=$7,
              class_name=$8, detail=$9, advice=$10, homework_lesson_count=$11, video_count=$12,
-             message_count=$13, course_line=$14, updated_at=now() WHERE id=$1`,
+             message_count=$13, course_line=$14, teacher_name=$15, updated_at=now() WHERE id=$1`,
           [
             existing[0].id,
             row.studentName,
@@ -588,7 +590,8 @@ export async function importStudents(rows: SheetStudentRow[]) {
             homeworkLessonCount,
             videoCount,
             messageCount,
-            courseLine
+            courseLine,
+            teacherName
           ]
         );
         updatedCount += 1;
@@ -600,9 +603,9 @@ export async function importStudents(rows: SheetStudentRow[]) {
       const normalizedName = normalizeName(row.studentName);
       const existing = (await sql.query(
         `SELECT id FROM students
-         WHERE normalized_name = $1 AND (teacher_name = $2 OR (teacher_name IS NULL AND $2 IS NULL))
+         WHERE normalized_name = $1 AND course_line=$3 AND class_name=$4 AND (teacher_name = $2 OR (teacher_name IS NULL AND $2 IS NULL))
          LIMIT 1`,
-        [normalizedName, teacherName]
+        [normalizedName, teacherName, courseLine, admission.className]
       )) as unknown as Array<{ id: string }>;
 
       if (existing[0]) {
@@ -665,7 +668,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
          id, student_name, normalized_name, teacher_name, score, overall_score, program_type, war_zone, admission, class_name,
          detail, advice, homework_lesson_count, video_count, message_count, course_line
        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-       ON CONFLICT (normalized_name, teacher_name) DO UPDATE SET
+       ON CONFLICT (normalized_name, teacher_name, course_line, class_name) DO UPDATE SET
          student_name = EXCLUDED.student_name, score = EXCLUDED.score, overall_score = EXCLUDED.overall_score,
          program_type = EXCLUDED.program_type,
          war_zone = EXCLUDED.war_zone,

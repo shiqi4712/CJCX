@@ -3,8 +3,9 @@
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getProgramQueryTitle, normalizeProgramType } from "@/lib/programs";
+import { queryResultPath } from "@/lib/query-scope";
 
-export function ParentQuery() {
+export function ParentQuery({ entry }: { entry?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const programType = normalizeProgramType(searchParams.get("program"));
@@ -23,7 +24,7 @@ export function ParentQuery() {
 
     setLoading(true);
     setMessage("");
-    router.push(`/result?name=${encodeURIComponent(studentName.trim())}`);
+    router.push(queryResultPath(studentName.trim(), entry));
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { queryEntryPath, queryResultPath } from "@/lib/query-scope";
 import {
   ArrowLeft,
   ArrowRight,
@@ -335,13 +336,13 @@ export function CoursePlanViewer() {
   function navigate(nextView: ViewId) { setView(nextView); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function returnToResult() {
     const student = payload.student?.trim();
-    window.location.href = student && student !== "学生" ? `/result?name=${encodeURIComponent(student)}` : "/";
+    window.location.href = student && student !== "学生" ? queryResultPath(student, payload.entry) : queryEntryPath(payload.entry);
   }
   function handleSaved(courseTime: string) { setPayload((current) => ({ ...current, preferredCourseTime: courseTime })); setConfirmedCourseTime(courseTime); }
   return (
     <main className={`app-shell ${view === "seat" ? "app-shell--seat" : ""}`}>
-      <AppHeader view={view} student={payload.student || "学生"} onNavigate={navigate} onLogout={() => { window.location.href = "/"; }} />
-      <div key={view} className="page-enter">{view === "roadmap" ? <RoadmapView payload={payload} onBack={returnToResult} onNext={() => navigate("consensus")} /> : null}{view === "consensus" ? <ConsensusView onNext={() => navigate("seat")} /> : null}{view === "seat" ? <SeatView payload={payload} onBack={() => navigate("consensus")} onReturnToQuery={() => { window.location.href = "/"; }} onSaved={handleSaved} /> : null}</div>
+      <AppHeader view={view} student={payload.student || "学生"} onNavigate={navigate} onLogout={() => { window.location.href = queryEntryPath(payload.entry); }} />
+      <div key={view} className="page-enter">{view === "roadmap" ? <RoadmapView payload={payload} onBack={returnToResult} onNext={() => navigate("consensus")} /> : null}{view === "consensus" ? <ConsensusView onNext={() => navigate("seat")} /> : null}{view === "seat" ? <SeatView payload={payload} onBack={() => navigate("consensus")} onReturnToQuery={() => { window.location.href = queryEntryPath(payload.entry); }} onSaved={handleSaved} /> : null}</div>
       {confirmedCourseTime ? <SeatSuccessDialog student={payload.student || "孩子"} courseTime={confirmedCourseTime} onClose={() => setConfirmedCourseTime(null)} /> : null}
     </main>
   );

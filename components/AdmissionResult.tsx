@@ -14,6 +14,7 @@ import { buildPerformanceRatings as buildPerformanceRatingsFromCounts } from "@/
 import { getAbilityRankByOverallScore } from "@/lib/result-scoring";
 
 export type QueryResult = {
+  entry?: string;
   studentId: string;
   studentName: string;
   score: string;
@@ -125,6 +126,7 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
     2 + (hashText(`${result.studentId}:${result.studentName}:ability-rank`) % 9);
   const performanceRatings = buildPerformanceRatingsFromCounts(result);
   const planPayload: CoursePlanPayload = {
+    entry: result.entry,
     studentId: result.studentId,
     student: result.studentName,
     score: result.score,

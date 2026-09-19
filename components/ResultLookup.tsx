@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdmissionResult, type QueryResult } from "@/components/AdmissionResult";
 import { ResultStateBrand } from "@/components/ResultStateBrand";
+import { queryEntryPath } from "@/lib/query-scope";
 
 const REVIEW_MESSAGE = "教学中心成绩审核进行中，请您耐心等待";
 const REQUEST_TIMEOUT_MS = 12000;
@@ -12,6 +13,7 @@ const REQUEST_TIMEOUT_MS = 12000;
 export function ResultLookup() {
   const searchParams = useSearchParams();
   const studentName = searchParams.get("name")?.trim() ?? "";
+  const entry = searchParams.get("entry") ?? undefined;
   const [result, setResult] = useState<QueryResult | null>(null);
   const [message, setMessage] = useState(studentName ? "正在查询..." : "请输入学员姓名后再查询。");
   const [loading, setLoading] = useState(Boolean(studentName));
@@ -42,7 +44,7 @@ export function ResultLookup() {
         void fetch("/api/query", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ studentName }),
+          body: JSON.stringify({ studentName, entry }),
           cache: "no-store"
         }).catch(() => null);
         window.clearTimeout(requestTimer);
@@ -56,7 +58,7 @@ export function ResultLookup() {
       const response = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentName }),
+        body: JSON.stringify({ studentName, entry }),
         cache: "no-store",
         signal: controller.signal
       }).catch(() => null);
@@ -91,7 +93,7 @@ export function ResultLookup() {
       controller.abort();
       window.clearTimeout(requestTimer);
     };
-  }, [studentName]);
+  }, [studentName, entry]);
 
   return (
     <main className="result-page">
@@ -99,7 +101,7 @@ export function ResultLookup() {
         <section className="result-state">
           <ResultStateBrand />
           <p className="result-state-message">{message}</p>
-          {!loading ? <Link href="/">返回查询</Link> : null}
+          {!loading ? <Link href={queryEntryPath(entry)}>返回查询</Link> : null}
         </section>
       ) : null}
 

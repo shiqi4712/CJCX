@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { QUERY_ENTRIES, queryScopeForHost, queryScopeForEntry, queryEntryPath, queryResultPath } from "../lib/query-scope";
 import JSZip from "jszip";
 import { decodeSession, encodeSession } from "../lib/auth";
 import { buildCoursePlanZip } from "../lib/documents";
@@ -35,6 +36,38 @@ import { buildCoursePlanData, getCoursePlanLine, getCoursePlanLineForPayload, no
 
 process.env.SESSION_SECRET = "test-session-secret-with-sufficient-entropy";
 delete process.env.DATABASE_URL;
+
+test("subdomain queries and reimports isolate five course groups", async () => {
+  resetMemoryStoreForTests();
+  const groups = Object.entries(QUERY_ENTRIES);
+  for (const [, scope] of groups) {
+    await importStudents([{ studentName: "同名测试", score: "A+", teacherName: "未分配老师", courseLine: scope.courseLine, programType: scope.yingcai ? "英才班" : "科特班" }]);
+  }
+  const ids = new Set<string>();
+  for (const [host, scope] of groups) {
+    const entry = host.split(".")[0];
+    assert.deepEqual(queryScopeForEntry(entry), queryScopeForHost(host));
+    const resultUrl = new URL(queryResultPath("同名测试", entry), "https://bcmty.cn");
+    assert.equal(queryEntryPath(resultUrl.searchParams.get("entry")!), `/entry/${entry}`);
+    const student = await queryStudentByName(resultUrl.searchParams.get("name")!, queryScopeForEntry(resultUrl.searchParams.get("entry")!));
+    assert.ok(student);
+    assert.equal(student.courseLine, scope.courseLine);
+    ids.add(student.id);
+    await recordPendingReviewQuery("同名测试", scope);
+  }
+  assert.equal(ids.size, 5);
+  const update = await importStudents([{ studentName: "同名测试", score: "A", teacherName: "未分配老师", courseLine: "preschool", programType: "英才班" }]);
+  assert.equal(update.updatedCount, 1);
+  assert.equal((await queryStudentByName("同名测试", QUERY_ENTRIES["pykete.bcmty.cn"]))?.score, "A+");
+  assert.equal((await queryStudentByName("不存在", QUERY_ENTRIES["tykete.bcmty.cn"])), null);
+  const logs = await getPendingReviewLogs("admin", undefined);
+  assert.equal(new Set(logs.rows.map((log) => log.matchedStudentId)).size, 5);
+  assert.throws(() => queryScopeForHost("unknown.bcmty.cn"));
+  assert.throws(() => queryScopeForEntry("unknown"));
+  assert.throws(() => queryScopeForEntry(""));
+  assert.equal(queryEntryPath("https://example.com"), "/");
+  assert.equal(queryScopeForHost("bcmty.cn"), undefined);
+});
 
 test("passwords are hashed and verified", async () => {
   const hash = await hashPassword("strong-password");

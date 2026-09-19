@@ -4,6 +4,7 @@ export type CoursePlanLineId = LearningCourseLine;
 export const DEFAULT_COURSE_PLAN_LINE: CoursePlanLineId = "moon";
 
 export type CoursePlanPayload = {
+  entry?: string;
   studentId?: string;
   student: string;
   score?: string;
