@@ -67,22 +67,14 @@ type LoginState = {
   role: "admin" | "teacher";
 };
 
-export function BackendConsole({
-  title,
-  defaultAccount,
-  defaultPassword = ""
-}: {
-  title: string;
-  defaultAccount: string;
-  defaultPassword?: string;
-}) {
-  const [account, setAccount] = useState(defaultAccount);
-  const [password, setPassword] = useState(defaultPassword);
+export function BackendConsole({ title }: { title: string }) {
+  const [account, setAccount] = useState("");
+  const [password, setPassword] = useState("");
   const [loginState, setLoginState] = useState<LoginState | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const autoLoginAttempted = useRef(false);
+  const [ready, setReady] = useState(false);
 
   const refreshOverview = useCallback(async () => {
     const response = await fetch("/api/admin/overview");
@@ -130,28 +122,17 @@ export function BackendConsole({
   }
 
   useEffect(() => {
-    if (loginState || autoLoginAttempted.current || typeof window === "undefined") return;
-    if (!["127.0.0.1", "localhost"].includes(window.location.hostname)) return;
-
-    const params = new URLSearchParams(window.location.search);
-    const queryAccount = params.get("backend-account")?.trim() ?? "";
-    const queryPassword = params.get("backend-password") ?? "";
-    const loginAccount = queryAccount || defaultAccount;
-    const loginPassword = queryPassword || defaultPassword;
-
-    if (!loginAccount || !loginPassword) return;
-    autoLoginAttempted.current = true;
-    setAccount(loginAccount);
-    void loginWithCredentials(loginAccount, loginPassword).then(() => {
-      if (queryAccount || queryPassword) {
-        window.history.replaceState(null, "", window.location.pathname);
-      }
-    });
-  }, [defaultAccount, defaultPassword, loginState, loginWithCredentials]);
-
-  useEffect(() => {
-    void refreshOverview();
-  }, [refreshOverview]);
+    let active = true;
+    void fetch("/api/auth/logout", { method: "POST" })
+      .then((response) => {
+        if (!response.ok) throw new Error("退出旧会话失败");
+        if (active) setReady(true);
+      })
+      .catch(() => {
+        if (active) setMessage("无法重置登录状态，请刷新页面重试");
+      });
+    return () => { active = false; };
+  }, []);
 
   return (
     <main className="console-shell">
@@ -185,10 +166,10 @@ export function BackendConsole({
               type="password"
             />
           </label>
-          <button type="submit" disabled={loading}>
+          <button type="submit" disabled={loading || !ready}>
             {loading ? "登录中..." : "登录后台"}
           </button>
-          <p>{defaultAccount ? "请输入管理员账号和密码。" : "请输入老师账号和密码。"}</p>
+          <p>请输入账号和密码。</p>
           {message ? <div className="console-message">{message}</div> : null}
         </form>
       ) : (
