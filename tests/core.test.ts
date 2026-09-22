@@ -37,9 +37,9 @@ import { buildCoursePlanData, getCoursePlanLine, getCoursePlanLineForPayload, no
 process.env.SESSION_SECRET = "test-session-secret-with-sufficient-entropy";
 delete process.env.DATABASE_URL;
 
-test("subdomain queries and reimports isolate five course groups", async () => {
+test("subdomain queries and reimports isolate the original five course groups", async () => {
   resetMemoryStoreForTests();
-  const groups = Object.entries(QUERY_ENTRIES);
+  const groups = Object.entries(QUERY_ENTRIES).filter(([host]) => !host.startsWith("b"));
   for (const [, scope] of groups) {
     await importStudents([{ studentName: "同名测试", score: "A+", teacherName: "未分配老师", courseLine: scope.courseLine, programType: scope.yingcai ? "英才班" : "科特班" }]);
   }
@@ -67,6 +67,14 @@ test("subdomain queries and reimports isolate five course groups", async () => {
   assert.throws(() => queryScopeForEntry(""));
   assert.equal(queryEntryPath("https://example.com"), "/");
   assert.equal(queryScopeForHost("bcmty.cn"), undefined);
+});
+
+test("B-side elite entries use only their three course materials", () => {
+  assert.equal(getCoursePlanLineForPayload({ courseLine: "python", targetClass: "英才班", entry: "bpython" }).goalImage, "/images/course-plan/b-yingcai/python-goal.jpg");
+  assert.equal(getCoursePlanLineForPayload({ courseLine: "moon", targetClass: "英才班", entry: "bmoon" }).planDetailImage, "/images/course-plan/b-yingcai/moon-plan.jpg");
+  assert.equal(getCoursePlanLineForPayload({ courseLine: "rocket", targetClass: "英才班", entry: "brocket" }).planDetailImage, "/images/course-plan/b-yingcai/rocket-goal.png");
+  assert.equal(getCoursePlanLineForPayload({ courseLine: "rocket", targetClass: "英才班", entry: "brocket" }).scheduleImage, "/images/course-plan/b-yingcai/rocket-schedule.png");
+  assert.equal(getCoursePlanLineForPayload({ courseLine: "python", targetClass: "英才班", entry: "pyyingcai" }).goalImage, "/images/course-plan/python-yingcai-goal.png");
 });
 
 test("passwords are hashed and verified", async () => {

@@ -9,8 +9,13 @@
 | https://bcmty.cn/entry/pykete | Python 非英才班 |
 | https://bcmty.cn/entry/tykete | 探月 |
 | https://bcmty.cn/entry/yucai | 小火箭 |
+| https://bcmty.cn/entry/bpython | B端 Python 英才班 |
+| https://bcmty.cn/entry/bmoon | B端探月英才班 |
+| https://bcmty.cn/entry/brocket | B端小火箭英才班 |
 
 家长仍只输入姓名。查询页到结果页通过 entry 参数保留入口，查询 API 校验固定入口映射；规划页面携带入口，返回成绩或查询页时继续保留。预约按成绩返回的学生 ID 保存，不重新按姓名查找。无效路径返回 404，无效 API 入口返回 400。
+
+B端三个入口只切换赛考规划、学习规划和上课时间三张物料图；班级介绍、教学服务、课程大纲等其他物料不进入用户查询流程。
 
 根域名首页保留旧的全名单查询，发放新链接才能隔离。入口用于名单匹配，不是身份验证。同一范围内历史重名仍取最早发布记录。
 

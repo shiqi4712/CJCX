@@ -170,13 +170,33 @@ const PYTHON_YINGCAI_MATERIALS = {
   scheduleImage: "/images/course-plan/python-yingcai-schedule.jpg"
 } as const;
 
+const B_YINGCAI_MATERIALS = {
+  bpython: {
+    goalImage: "/images/course-plan/b-yingcai/python-goal.jpg",
+    planDetailImage: "/images/course-plan/b-yingcai/python-plan.jpg",
+    scheduleImage: "/images/course-plan/b-yingcai/python-schedule.jpg"
+  },
+  bmoon: {
+    goalImage: "/images/course-plan/b-yingcai/moon-goal.jpg",
+    planDetailImage: "/images/course-plan/b-yingcai/moon-plan.jpg",
+    scheduleImage: "/images/course-plan/b-yingcai/moon-schedule.jpg"
+  },
+  brocket: {
+    goalImage: "/images/course-plan/b-yingcai/rocket-plan.png",
+    planDetailImage: "/images/course-plan/b-yingcai/rocket-goal.png",
+    scheduleImage: "/images/course-plan/b-yingcai/rocket-schedule.png"
+  }
+} as const;
+
 export function isYingcaiClass(value?: string | null) {
   const text = String(value ?? "").trim().toLowerCase();
   return text.includes("英才") || text.includes("yingcai");
 }
 
-export function getCoursePlanLineForPayload(payload: Pick<CoursePlanPayload, "courseLine" | "targetClass">) {
+export function getCoursePlanLineForPayload(payload: Pick<CoursePlanPayload, "courseLine" | "targetClass" | "entry">) {
   const line = getCoursePlanLine(payload.courseLine);
+  const bMaterials = payload.entry ? B_YINGCAI_MATERIALS[payload.entry as keyof typeof B_YINGCAI_MATERIALS] : undefined;
+  if (bMaterials) return { ...line, ...bMaterials };
   if (line.id === "python" && isYingcaiClass(payload.targetClass)) {
     return { ...line, ...PYTHON_YINGCAI_MATERIALS };
   }
