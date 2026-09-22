@@ -1,36 +1,62 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
+import { archiveGeneratedFile, archiveUploadedFile } from "@/lib/blob-storage";
 import { buildCoursePlanZip } from "@/lib/documents";
 import { parseSheetFile, toStudentRows } from "@/lib/sheets";
 
 export const runtime = "nodejs";
+export const maxDuration = 600;
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+function archiveCoursePlanArtifacts(templateFile: File | null, studentsFile: File, zip: Buffer, filename: string) {
+  void Promise.allSettled([
+    templateFile ? archiveUploadedFile("course-plan/templates", templateFile) : null,
+    archiveUploadedFile("course-plan/student-sheets", studentsFile),
+    archiveGeneratedFile("course-plan/exports", filename, zip)
+  ]).catch((error) => {
+    console.error("course plan archive failed", error);
+  });
+}
 
 export async function POST(request: Request) {
-  const session = await requireSession();
+  const session = await requireSession("admin");
   if (!session) {
-    return NextResponse.json({ message: "请先登录" }, { status: 401 });
+    return NextResponse.json({ message: "无管理员权限" }, { status: 403 });
   }
 
   const formData = await request.formData();
-  const templateFile = formData.get("template");
-  const studentsFile = formData.get("students");
+  const templateField = formData.get("template");
+  const studentsField = formData.get("students");
+  const templateFile = templateField instanceof File ? templateField : null;
 
-  if (!(studentsFile instanceof File)) {
+  if (!(studentsField instanceof File)) {
     return NextResponse.json({ message: "请上传学生信息表" }, { status: 400 });
   }
 
-  const parsedRows = await parseSheetFile(studentsFile).catch((error: Error) => error);
+  if (studentsField.size > MAX_FILE_SIZE || (templateFile && templateFile.size > MAX_FILE_SIZE)) {
+    return NextResponse.json({ message: "单个文件不能超过 10MB" }, { status: 400 });
+  }
+
+  const parsedRows = await parseSheetFile(studentsField).catch((error: Error) => error);
   if (parsedRows instanceof Error) {
     return NextResponse.json({ message: parsedRows.message }, { status: 400 });
   }
 
   const students = toStudentRows(parsedRows);
   if (students.length === 0) {
-    return NextResponse.json({ message: "学生信息表头必须包含：学生姓名、成绩" }, { status: 400 });
+    return NextResponse.json({ message: "学生信息表表头必须包含：学生姓名、成绩" }, { status: 400 });
   }
 
-  const zip = await buildCoursePlanZip(templateFile instanceof File ? templateFile : null, students);
-  const filename = encodeURIComponent("个性化学习方案批量导出.zip");
+  const zip = await buildCoursePlanZip(templateFile, students).catch((error: Error) => error);
+  if (zip instanceof Error) {
+    return NextResponse.json({ message: zip.message || "生成 PDF 失败" }, { status: 500 });
+  }
+
+  const plainFilename = "个性化学习方案批量导出.zip";
+  const filename = encodeURIComponent(plainFilename);
+
+  archiveCoursePlanArtifacts(templateFile, studentsField, zip, plainFilename);
 
   return new NextResponse(new Uint8Array(zip), {
     headers: {
