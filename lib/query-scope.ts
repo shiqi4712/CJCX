@@ -11,7 +11,9 @@ export const QUERY_ENTRIES: Record<string, QueryScope> = {
   "yeyingcai.bcmty.cn": { courseLine: "preschool", yingcai: true },
   "bpython.bcmty.cn": { courseLine: "python", yingcai: true },
   "bmoon.bcmty.cn": { courseLine: "moon", yingcai: true },
-  "brocket.bcmty.cn": { courseLine: "rocket", yingcai: true }
+  "brocket.bcmty.cn": { courseLine: "rocket", yingcai: true },
+  "bpreschool.bcmty.cn": { courseLine: "preschool", yingcai: true },
+  "bcpp.bcmty.cn": { courseLine: "cpp", yingcai: false }
 };
 
 export function queryScopeForHost(host: string): QueryScope | undefined {

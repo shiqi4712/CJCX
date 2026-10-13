@@ -1571,6 +1571,11 @@ body:has(.app-shell) {
   box-shadow: 0 14px 32px rgba(111, 51, 48, 0.14);
 }
 
+.app-shell .competition-plan-image-trigger .competition-plan-image--outline {
+  aspect-ratio: auto;
+  height: auto;
+}
+
 /* The supplied talent posters already contain their own composition and framing. */
 .app-shell .competition-plan-image-trigger--flat .competition-plan-image {
   aspect-ratio: auto;

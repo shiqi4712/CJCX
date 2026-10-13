@@ -695,7 +695,7 @@ function Dashboard({
           <section className="tool-panel">
             <h3>学生成绩信息</h3>
             <p>
-              支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、班级类型、课线、战区、作业次数、视频次数、学生消息数。课线填写 Python、探月、小火箭或幼儿，用于匹配专属规划、规划明细和时间表物料；Python 英才班和幼儿课线请在班级类型中填写英才班。综合得分由系统自动生成；旧表未填写课线时默认使用探月。
+              支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、班级类型、课线、战区、作业次数、视频次数、学生消息数。课线填写 Python、探月、小火箭、幼儿或 C++，用于匹配专属规划和时间表物料；Python 英才班、幼儿及 B 端低龄请在班级类型中填写英才班，B 端 C++ 填写科特班。综合得分由系统自动生成；旧表未填写课线时默认使用探月。
             </p>
             <input ref={studentImportRef} type="file" accept=".xlsx,.csv" />
             <button onClick={() => uploadFile("/api/admin/students/import", studentImportRef.current, "学生成绩")}>
@@ -742,6 +742,7 @@ function Dashboard({
               <option value="moon">探月</option>
               <option value="rocket">小火箭</option>
               <option value="preschool">幼儿</option>
+              <option value="cpp">C++</option>
             </select>
           </label>
           <label>
@@ -1037,7 +1038,7 @@ function Dashboard({
                           const programType = window.prompt("请输入成绩表中的班型名称", student.className);
                           if (!programType) return;
                           const courseLineInput = window.prompt(
-                            "课线：Python、探月、小火箭或幼儿",
+                            "课线：Python、探月、小火箭、幼儿或 C++",
                             COURSE_PLAN_LINES[normalizeCoursePlanLine(student.courseLine)].name
                           );
                           if (!courseLineInput) return;

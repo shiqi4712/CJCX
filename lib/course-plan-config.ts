@@ -129,6 +129,28 @@ export const COURSE_PLAN_LINES: Record<CoursePlanLineId, CoursePlanLine> = {
     goalImage: "/images/course-plan/preschool-yingcai-goal.png",
     planDetailImage: "/images/course-plan/preschool-yingcai-plan-detail.jpeg",
     scheduleImage: "/images/course-plan/preschool-yingcai-schedule.png"
+  },
+  cpp: {
+    id: "cpp",
+    name: "C++",
+    targetClass: "科特班",
+    period: "6个月",
+    weekly: "每周1次",
+    officialHours: "按规划安排",
+    giftHours: "阶段辅导",
+    totalHours: "按规划安排",
+    examTarget: "CSP / NCT",
+    price: "以顾问报价为准",
+    priceNote: "具体方案以正式通知为准。",
+    focusDefault: "C++ 编程、算法思维、赛考能力",
+    goalDefault: "掌握 C++ 基础与算法思维，逐步完成考级和竞赛目标",
+    scheduleText: "根据课程安排选择上课时间，可提前预约老师直播辅导。",
+    coursePromise: "每周稳定学习，配合课前预习和课后巩固。",
+    classPromise: "小班带教，老师关注孩子的学习进度与薄弱项。",
+    pathPromise: "从语言基础到算法应用，逐步积累赛考能力。",
+    goalImage: "/images/course-plan/b-new/cpp-outline.png",
+    planDetailImage: "/images/course-plan/b-new/cpp-outline.png",
+    scheduleImage: "/images/course-plan/b-new/cpp-schedule.png"
   }
 };
 
@@ -138,6 +160,7 @@ export function normalizeCoursePlanLine(value?: string | null): CoursePlanLineId
   if (text === "moon" || text.includes("探月")) return "moon";
   if (text === "rocket" || text.includes("小火箭")) return "rocket";
   if (text === "preschool" || text.includes("幼儿")) return "preschool";
+  if (text === "cpp" || text.includes("c++") || text.includes("c＋＋")) return "cpp";
   // Legacy links used class-plan ids; keep them opening with the former graphical curriculum default.
   if (["talent", "kete", "yucai"].includes(text)) return "moon";
   return DEFAULT_COURSE_PLAN_LINE;
@@ -153,9 +176,10 @@ export function parseCoursePlanLine(value?: string | null): CoursePlanLineId {
     key === "py" ||
     text.includes("探月") ||
     text.includes("小火箭") ||
-    text.includes("幼儿");
+    text.includes("幼儿") ||
+    normalized === "cpp";
   if (!recognized) {
-    throw new Error(`课线“${text}”无效，请填写 Python、探月、小火箭或幼儿`);
+    throw new Error(`课线“${text}”无效，请填写 Python、探月、小火箭、幼儿或 C++`);
   }
   return normalized;
 }
@@ -185,6 +209,11 @@ const B_YINGCAI_MATERIALS = {
     goalImage: "/images/course-plan/b-yingcai/rocket-plan.png",
     planDetailImage: "/images/course-plan/b-yingcai/rocket-goal.png",
     scheduleImage: "/images/course-plan/b-yingcai/rocket-schedule.png"
+  },
+  bpreschool: {
+    goalImage: "/images/course-plan/b-new/preschool-outline.png",
+    planDetailImage: "/images/course-plan/b-new/preschool-outline.png",
+    scheduleImage: "/images/course-plan/b-new/preschool-schedule.png"
   }
 } as const;
 

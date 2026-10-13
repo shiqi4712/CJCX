@@ -191,15 +191,18 @@ function BottomAction({ label, icon: Icon, onClick, secondaryAction }: { label: 
 
 function RoadmapView({ payload, onBack, onNext }: { payload: CoursePlanPayload; onBack: () => void; onNext: () => void }) {
   const courseLine = getCoursePlanLineForPayload(payload);
+  const outlineOnly = payload.entry === "bpreschool" || payload.entry === "bcpp";
   const usesNewTalentMaterial = courseLine.id === "preschool" || (courseLine.id === "python" && isYingcaiClass(payload.targetClass));
   return (
     <section className="page roadmap-page page--with-action">
-      <div className="page-heading page-heading--stacked"><p className="eyebrow">个性化成长路径</p><h1>专属6个月学习目标</h1><p>学习目标、学科知识与赛事目标同步规划。</p></div>
+      <div className="page-heading page-heading--stacked"><p className="eyebrow">个性化成长路径</p><h1>{outlineOnly ? "专属课程学习规划" : "专属6个月学习目标"}</h1><p>学习目标、学科知识与赛事目标同步规划。</p></div>
+      {outlineOnly ? <ExpandableImage triggerClassName="competition-plan-image-trigger competition-plan-image-trigger--flat" imageClassName="competition-plan-image competition-plan-image--outline" src={courseLine.goalImage} alt={`${courseLine.name}课程大纲`} /> : <>
       <ExpandableImage triggerClassName={`competition-plan-image-trigger${usesNewTalentMaterial ? " competition-plan-image-trigger--flat" : ""}`} imageClassName="competition-plan-image" src={courseLine.goalImage} alt={`${courseLine.name}课线学习目标`} />
       <section className="monthly-plan-section">
         <div className="monthly-plan-section__heading"><div><p>6 MONTH PLAN</p><h2>六个月学习规划</h2></div><span>共 6 个月</span></div>
         <ExpandableImage triggerClassName="plan-detail-image-trigger" imageClassName={`plan-detail-image plan-detail-image--${courseLine.id}`} src={courseLine.planDetailImage} alt={`${courseLine.name}课线六个月学习规划明细`} />
       </section>
+      </>}
       <BottomAction label="查看上课模式" icon={ArrowRight} onClick={onNext} secondaryAction={onBack} />
     </section>
   );
