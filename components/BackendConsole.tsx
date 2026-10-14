@@ -75,20 +75,28 @@ export function BackendConsole({ title }: { title: string }) {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const overviewRequestRef = useRef<Promise<void> | null>(null);
 
   const refreshOverview = useCallback(async () => {
-    const response = await fetch("/api/admin/overview");
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        setOverview(null);
-        setLoginState(null);
+    if (overviewRequestRef.current) return overviewRequestRef.current;
+    const request = (async () => {
+      const response = await fetch("/api/admin/overview", { cache: "no-store" });
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setOverview(null);
+          setLoginState(null);
+        }
+        return;
       }
-      return;
-    }
-    const data = (await readResponseJson(response)) as Overview;
-    setOverview(data);
-    if (data.session) {
-      setLoginState(data.session);
+      const data = (await readResponseJson(response)) as Overview;
+      setOverview(data);
+      if (data.session) setLoginState(data.session);
+    })();
+    overviewRequestRef.current = request;
+    try {
+      await request;
+    } finally {
+      overviewRequestRef.current = null;
     }
   }, []);
 
@@ -304,7 +312,7 @@ function Dashboard({
     const timer = window.setInterval(() => {
       void refreshOverview();
       void refreshPendingReviewLogs(pendingReviewPage);
-    }, 15_000);
+    }, 60_000);
 
     return () => window.clearInterval(timer);
   }, [pendingReviewPage, refreshOverview, refreshPendingReviewLogs]);

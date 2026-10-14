@@ -240,9 +240,9 @@ export async function recordPendingReviewQuery(studentName: string, scope?: Quer
   const sql = getSql();
   const rows = (await sql.query(
     `SELECT * FROM students
-     WHERE (normalized_name = $1 OR student_name = $2) AND published = true
+     WHERE normalized_name = $1 AND published = true
      ORDER BY created_at ASC, id ASC`,
-    [normalized, studentName.trim()]
+    [normalized]
   )) as unknown as Record<string, unknown>[];
   const row = rows.find((item) => matchesQueryScope(mapStudent(item), scope));
   await sql.query(
@@ -360,9 +360,9 @@ export async function queryStudentByName(studentName: string, scope?: QueryScope
   const sql = getSql();
   const rows = (await sql.query(
     `SELECT * FROM students
-     WHERE (normalized_name = $1 OR student_name = $2) AND published = true
+     WHERE normalized_name = $1 AND published = true
      ORDER BY created_at ASC, id ASC`,
-    [normalized, studentName.trim()]
+    [normalized]
   )) as unknown as Record<string, unknown>[];
   const row = rows.find((item) => matchesQueryScope(mapStudent(item), scope));
   const logId = randomUUID();
@@ -376,41 +376,24 @@ export async function queryStudentByName(studentName: string, scope?: QueryScope
     );
     return null;
   }
-  if (sql.dialect === "mysql") {
-    await sql.query(
-      `UPDATE students SET
-         queried = true,
-         query_count = 1,
-         last_query = now(), updated_at = now()
-       WHERE id = $1`,
-      [row.id]
-    );
-    const mysqlUpdated = (await sql.query("SELECT * FROM students WHERE id = $1 LIMIT 1", [row.id])) as unknown as Record<
-      string,
-      unknown
-    >[];
-    await sql.query(
-      `INSERT INTO query_logs (
-         id, input_student_name, matched_student_id, matched_student_name, matched_teacher_name, result_status
-       ) VALUES ($1, $2, $3, $4, $5, 'success')`,
-      [logId, studentName, row.id, row.student_name, row.teacher_name]
-    );
-    return mapStudent(mysqlUpdated[0]);
-  }
-
-  const updated = (await sql.query(
+  const updatePromise = sql.query(
     `UPDATE students SET query_count = 1,
        queried = true,
-       last_query = now(), updated_at = now() WHERE id = $1 RETURNING *`,
+       last_query = now(), updated_at = now() WHERE id = $1`,
     [row.id]
-  )) as unknown as Record<string, unknown>[];
-  await sql.query(
+  );
+  const logPromise = sql.query(
     `INSERT INTO query_logs (
        id, input_student_name, matched_student_id, matched_student_name, matched_teacher_name, result_status
      ) VALUES ($1, $2, $3, $4, $5, 'success')`,
     [logId, studentName, row.id, row.student_name, row.teacher_name]
   );
-  return mapStudent(updated[0]);
+  await Promise.all([updatePromise, logPromise]);
+  row.query_count = 1;
+  row.queried = true;
+  row.last_query = new Date().toISOString();
+  row.updated_at = row.last_query;
+  return mapStudent(row);
 }
 
 export async function login(account: string, password: string) {

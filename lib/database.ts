@@ -210,8 +210,11 @@ async function initializePostgresSchema(sql: SqlClient) {
   await sql.query("CREATE UNIQUE INDEX IF NOT EXISTS students_scoped_identity ON students(normalized_name, teacher_name, course_line, class_name)");
   await sql.query("ALTER TABLE students DROP CONSTRAINT IF EXISTS students_normalized_name_teacher_name_key");
   await sql.query("CREATE INDEX IF NOT EXISTS students_query_idx ON students(normalized_name, published, created_at)");
+  await sql.query("CREATE INDEX IF NOT EXISTS students_overview_time_idx ON students(created_at DESC)");
+  await sql.query("CREATE INDEX IF NOT EXISTS students_import_idx ON students(normalized_name, course_line, class_name, teacher_name)");
   await sql.query("CREATE INDEX IF NOT EXISTS students_teacher_idx ON students(teacher_name)");
   await sql.query("CREATE INDEX IF NOT EXISTS query_logs_time_idx ON query_logs(queried_at DESC)");
+  await sql.query("CREATE INDEX IF NOT EXISTS query_logs_pending_idx ON query_logs(result_status, queried_at DESC)");
   await sql.query("CREATE INDEX IF NOT EXISTS query_logs_teacher_idx ON query_logs(matched_teacher_name, queried_at DESC)");
   await sql.query("CREATE INDEX IF NOT EXISTS course_plan_links_time_idx ON course_plan_links(generated_at DESC)");
   await sql.query("CREATE INDEX IF NOT EXISTS course_plan_links_teacher_idx ON course_plan_links(teacher_name, generated_at DESC)");
@@ -319,8 +322,11 @@ async function initializeMySqlSchema(sql: SqlClient) {
   const legacyIndex = await sql.query("SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='students' AND INDEX_NAME='students_unique_name_teacher' LIMIT 1");
   if (legacyIndex.length) await sql.query("ALTER TABLE students DROP INDEX students_unique_name_teacher");
   await createMySqlIndexIfMissing(sql, "students", "students_query_idx", "normalized_name, published, created_at");
+  await createMySqlIndexIfMissing(sql, "students", "students_overview_time_idx", "created_at");
+  await createMySqlIndexIfMissing(sql, "students", "students_import_idx", "normalized_name, course_line, class_name, teacher_name");
   await createMySqlIndexIfMissing(sql, "students", "students_teacher_idx", "teacher_name");
   await createMySqlIndexIfMissing(sql, "query_logs", "query_logs_time_idx", "queried_at");
+  await createMySqlIndexIfMissing(sql, "query_logs", "query_logs_pending_idx", "result_status, queried_at");
   await createMySqlIndexIfMissing(sql, "query_logs", "query_logs_teacher_idx", "matched_teacher_name, queried_at");
   await createMySqlIndexIfMissing(sql, "course_plan_links", "course_plan_links_time_idx", "generated_at");
   await createMySqlIndexIfMissing(sql, "course_plan_links", "course_plan_links_teacher_idx", "teacher_name, generated_at");
