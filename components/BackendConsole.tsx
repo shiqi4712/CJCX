@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { uploadSheet } from "@/lib/sheet-upload";
 import {
   COURSE_PLAN_LINES,
   normalizeCoursePlanLine,
@@ -10,7 +11,6 @@ import {
 const STUDENT_PAGE_SIZE = 20;
 const TEACHER_PAGE_SIZE = 10;
 const PENDING_REVIEW_PAGE_SIZE = 10;
-const EMPTY_WAR_ZONE = "__empty_war_zone__";
 
 type Overview = {
   stats: {
@@ -19,7 +19,9 @@ type Overview = {
     admittedCount: number;
     queriedCount: number;
     pendingCount: number;
+    queryCount: number;
   };
+  warZones: Array<{ value: string; label: string; studentCount: number; admittedCount: number; queriedCount: number; pendingCount: number; queryCount: number }>;
   students: Array<{
     id: string;
     studentName: string;
@@ -80,18 +82,24 @@ export function BackendConsole({ title }: { title: string }) {
   const refreshOverview = useCallback(async () => {
     if (overviewRequestRef.current) return overviewRequestRef.current;
     const request = (async () => {
-      const response = await fetch("/api/admin/overview", { cache: "no-store" });
+      const response = await fetch("/api/admin/overview", { cache: "no-store", signal: AbortSignal.timeout(45_000) });
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
           setOverview(null);
           setLoginState(null);
         }
-        return;
+        throw new Error(`数据加载失败（HTTP ${response.status}），请重试；这不代表数据为 0。`);
       }
       const data = (await readResponseJson(response)) as Overview;
+      if (!data.stats || !Array.isArray(data.warZones) || !data.settings) {
+        throw new Error("数据接口返回格式异常，请检查服务器接口或代理配置。");
+      }
       setOverview(data);
+      setMessage("");
       if (data.session) setLoginState(data.session);
-    })();
+    })().catch((error) => {
+      setMessage(error instanceof Error ? error.message : "数据加载失败，请检查网络后重试。");
+    });
     overviewRequestRef.current = request;
     try {
       await request;
@@ -105,21 +113,26 @@ export function BackendConsole({ title }: { title: string }) {
       setLoading(true);
       setMessage("");
 
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account: loginAccount, password: loginPassword })
-      });
-      const data = await readResponseJson(response);
-      setLoading(false);
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ account: loginAccount, password: loginPassword })
+        });
+        const data = await readResponseJson(response);
 
-      if (!response.ok) {
-        setMessage(data.message ?? "登录失败");
-        return;
+        if (!response.ok) {
+          setMessage(data.message ?? "登录失败");
+          return;
+        }
+
+        setLoginState(data as LoginState);
+        await refreshOverview();
+      } catch {
+        setMessage("登录请求失败，请检查网络后重试");
+      } finally {
+        setLoading(false);
       }
-
-      setLoginState(data as LoginState);
-      await refreshOverview();
     },
     [refreshOverview]
   );
@@ -181,7 +194,17 @@ export function BackendConsole({ title }: { title: string }) {
           {message ? <div className="console-message">{message}</div> : null}
         </form>
       ) : (
-        <Dashboard loginState={loginState} overview={overview} refreshOverview={refreshOverview} />
+        <>
+          {message ? <div className="console-message" role="alert">{message}</div> : null}
+          {overview ? (
+            <Dashboard loginState={loginState} overview={overview} refreshOverview={refreshOverview} />
+          ) : (
+            <section className="dashboard">
+              <p>{message ? "尚未取得后台数据，请重试。" : "正在加载后台数据，请稍候..."}</p>
+              <button onClick={() => void refreshOverview()}>重新加载数据</button>
+            </section>
+          )}
+        </>
       )}
     </main>
   );
@@ -219,79 +242,71 @@ function Dashboard({
   const [pendingReviewLoading, setPendingReviewLoading] = useState(false);
   const [pendingReviewExporting, setPendingReviewExporting] = useState(false);
   const isAdmin = loginState.role === "admin";
-  const teacherRows = useMemo(
-    () => overview?.teachers.filter((teacher) => teacher.role === "teacher") ?? [],
-    [overview?.teachers]
-  );
-  const teacherPageCount = Math.max(1, Math.ceil(teacherRows.length / TEACHER_PAGE_SIZE));
-  const visibleTeacherRows = useMemo(() => {
-    const start = (teacherPage - 1) * TEACHER_PAGE_SIZE;
-    return teacherRows.slice(start, start + TEACHER_PAGE_SIZE);
-  }, [teacherRows, teacherPage]);
-  const studentRows = overview?.students ?? [];
+  const [studentData, setStudentData] = useState<{ rows: Overview["students"]; total: number; pageCount: number } | null>(null);
+  const [teacherData, setTeacherData] = useState<{ rows: Overview["teachers"]; total: number; pageCount: number } | null>(null);
+  const [studentLoading, setStudentLoading] = useState(true);
+  const [teacherLoading, setTeacherLoading] = useState(true);
+  const [studentError, setStudentError] = useState("");
+  const [teacherError, setTeacherError] = useState("");
+  const [listRevision, setListRevision] = useState(0);
+  const [upload, setUpload] = useState<{ endpoint: string; phase: "uploading" | "processing" | "success" | "error"; percent: number | null; message: string } | null>(null);
+  const uploadBusyRef = useRef(false);
+  const uploadBusy = upload?.phase === "uploading" || upload?.phase === "processing";
+  const teacherRows = teacherData?.rows ?? [];
+  const teacherPageCount = teacherData?.pageCount ?? 1;
+  const visibleTeacherRows = teacherRows;
+  const studentRows = studentData?.rows ?? [];
   const normalizedStudentSearch = studentSearch.trim().toLowerCase();
-  const warZoneOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    studentRows.forEach((student) => {
-      const key = student.warZone.trim() || EMPTY_WAR_ZONE;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    });
-    return [
-      { value: "all", label: "全部战区", count: studentRows.length },
-      ...Array.from(counts.entries())
-        .sort(([left], [right]) => {
-          if (left === EMPTY_WAR_ZONE) return 1;
-          if (right === EMPTY_WAR_ZONE) return -1;
-          return left.localeCompare(right, "zh-CN");
-        })
-        .map(([value, count]) => ({
-          value,
-          label: value === EMPTY_WAR_ZONE ? "未设置战区" : value,
-          count
-        }))
-    ];
-  }, [studentRows]);
-  const selectedWarZoneRows = useMemo(
-    () =>
-      studentRows.filter(
-        (student) =>
-          studentWarZone === "all" ||
-          (studentWarZone === EMPTY_WAR_ZONE ? !student.warZone.trim() : student.warZone === studentWarZone)
-      ),
-    [studentRows, studentWarZone]
-  );
-  const filteredStudentRows = useMemo(
-    () =>
-      selectedWarZoneRows.filter(
-        (student) =>
-          !normalizedStudentSearch || student.studentName.toLowerCase().includes(normalizedStudentSearch)
-      ),
-    [normalizedStudentSearch, selectedWarZoneRows]
-  );
-  const studentPageCount = Math.max(1, Math.ceil(filteredStudentRows.length / STUDENT_PAGE_SIZE));
-  const visibleStudentRows = useMemo(() => {
-    const start = (studentPage - 1) * STUDENT_PAGE_SIZE;
-    return filteredStudentRows.slice(start, start + STUDENT_PAGE_SIZE);
-  }, [filteredStudentRows, studentPage]);
-  const totalQueryCount = selectedWarZoneRows.reduce((sum, student) => sum + student.queryCount, 0);
-  const queryRate = statsPercent(
-    selectedWarZoneRows.filter((student) => student.queried).length,
-    selectedWarZoneRows.length
-  );
-  const selectedStats = {
-    studentCount: selectedWarZoneRows.length,
-    admittedCount: selectedWarZoneRows.filter((student) => student.admission === "已录取").length,
-    queriedCount: selectedWarZoneRows.filter((student) => student.queried).length,
-    pendingCount: selectedWarZoneRows.filter((student) => !student.queried).length
-  };
+  const warZoneOptions = useMemo(() => [
+    { value: "all", label: "全部战区", count: overview?.stats.studentCount ?? 0 },
+    ...(overview?.warZones ?? []).map((zone) => ({ ...zone, count: zone.studentCount }))
+  ], [overview]);
+  const studentPageCount = studentData?.pageCount ?? 1;
+  const visibleStudentRows = studentRows;
+  const selectedStats = (studentWarZone === "all" ? overview?.stats : overview?.warZones.find((zone) => zone.value === studentWarZone))
+    ?? { studentCount: 0, admittedCount: 0, queriedCount: 0, pendingCount: 0, queryCount: 0 };
+  const totalQueryCount = selectedStats.queryCount;
+  const queryRate = statsPercent(selectedStats.queriedCount, selectedStats.studentCount);
   const selectedWarZoneLabel =
     warZoneOptions.find((option) => option.value === studentWarZone)?.label ?? "全部战区";
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setStudentLoading(true);
+    setStudentError("");
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams({ page: String(studentPage), search: normalizedStudentSearch, zone: studentWarZone });
+      void fetch(`/api/admin/students?${params}`, { cache: "no-store", signal: controller.signal })
+        .then(async (response) => {
+          if (!response.ok) throw new Error(`学生列表加载失败（${response.status}），请刷新数据或重新登录`);
+          const data = await response.json();
+          if (!controller.signal.aborted) { setStudentData(data); setStudentPage(data.page); }
+        }).catch((error) => { if (!controller.signal.aborted) setStudentError(error.message); })
+        .finally(() => { if (!controller.signal.aborted) setStudentLoading(false); });
+    }, 250);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [studentPage, normalizedStudentSearch, studentWarZone, overview, listRevision]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const controller = new AbortController();
+    setTeacherLoading(true);
+    setTeacherError("");
+    void fetch(`/api/admin/teachers?page=${teacherPage}`, { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`老师列表加载失败（${response.status}），请刷新数据或重新登录`);
+        const data = await response.json();
+        if (!controller.signal.aborted) { setTeacherData(data); setTeacherPage(data.page); }
+      }).catch((error) => { if (!controller.signal.aborted) setTeacherError(error.message); })
+      .finally(() => { if (!controller.signal.aborted) setTeacherLoading(false); });
+    return () => controller.abort();
+  }, [teacherPage, isAdmin, overview, listRevision]);
 
   const refreshPendingReviewLogs = useCallback(async (page: number) => {
     setPendingReviewLoading(true);
     try {
       const response = await fetch(`/api/query-logs/pending-review?page=${page}`, { cache: "no-store" });
-      if (!response.ok) return;
+      if (!response.ok) throw new Error(`审核记录加载失败（${response.status}）`);
       const data = (await response.json()) as {
         rows: Overview["queryLogs"];
         total: number;
@@ -302,6 +317,8 @@ function Dashboard({
       setPendingReviewTotal(data.total);
       setPendingReviewPageCount(data.pageCount);
       if (data.page !== page) setPendingReviewPage(data.page);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "审核记录加载失败，请重试");
     } finally {
       setPendingReviewLoading(false);
     }
@@ -310,6 +327,7 @@ function Dashboard({
   useEffect(() => {
     void refreshPendingReviewLogs(pendingReviewPage);
     const timer = window.setInterval(() => {
+      if (document.hidden || uploadBusyRef.current) return;
       void refreshOverview();
       void refreshPendingReviewLogs(pendingReviewPage);
     }, 60_000);
@@ -328,44 +346,38 @@ function Dashboard({
   }, [studentWarZone, warZoneOptions]);
 
   useEffect(() => {
-    if (studentPage > studentPageCount) {
-      setStudentPage(studentPageCount);
-    }
-  }, [studentPage, studentPageCount]);
-
-  useEffect(() => {
-    if (teacherPage > teacherPageCount) {
-      setTeacherPage(teacherPageCount);
-    }
-  }, [teacherPage, teacherPageCount]);
-
-  useEffect(() => {
     setResultOpenAtInput(toDateTimeLocalValue(overview?.settings.resultOpenAt ?? null));
   }, [overview?.settings.resultOpenAt]);
 
   async function uploadFile(endpoint: string, input: HTMLInputElement | null, label: string) {
+    if (uploadBusyRef.current) return;
     const file = input?.files?.[0];
     if (!file) {
-      setStatus(`请先选择${label}`);
+      setUpload({ endpoint, phase: "error", percent: null, message: `请先选择${label}` });
       return;
     }
 
-    const formData = new FormData();
-    formData.append("file", file);
-    const response = await fetch(endpoint, { method: "POST", body: formData });
-    const data = await readResponseJson(response);
-
-    if (!response.ok) {
-      setStatus(data.message ?? `${label}导入失败`);
+    if (file.size > 5 * 1024 * 1024) {
+      setUpload({ endpoint, phase: "error", percent: null, message: "文件不能超过 5MB，请重新选择。" });
       return;
     }
-
-    setStatus(
-      `${label}导入完成：新增 ${data.importedCount} 条，更新 ${data.updatedCount ?? 0} 条${
-        data.archiveWarning ? `；${data.archiveWarning}` : ""
-      }`
-    );
-    await refreshOverview();
+    uploadBusyRef.current = true;
+    setStatus("");
+    setUpload({ endpoint, phase: "uploading", percent: 0, message: `正在上传 ${file.name}` });
+    try {
+      const data = await uploadSheet(endpoint, file, (progress) => setUpload({ endpoint, ...progress,
+        message: progress.phase === "processing"
+          ? "文件上传完成，正在校验并写入数据，请勿重复提交或关闭页面。"
+          : `正在上传 ${file.name}` }));
+      const message = `${label}上传并导入成功：新增 ${data.importedCount} 条，更新 ${data.updatedCount ?? 0} 条${data.archiveWarning ? `；${data.archiveWarning}` : ""}`;
+      setUpload({ endpoint, phase: "success", percent: 100, message });
+      if (input) input.value = "";
+      await refreshOverview();
+    } catch (error) {
+      setUpload({ endpoint, phase: "error", percent: null, message: error instanceof Error ? error.message : "导入失败，请重试。" });
+    } finally {
+      uploadBusyRef.current = false;
+    }
   }
 
   async function mutate(endpoint: string, method: "PATCH" | "DELETE", body?: object) {
@@ -501,13 +513,13 @@ function Dashboard({
   }
 
   async function deleteAllStudentRows() {
-    if (studentRows.length === 0) {
+    if (!overview?.stats.studentCount) {
       setStatus("当前没有可删除的学生名单");
       return;
     }
     if (
       !window.confirm(
-        `确认删除全部 ${studentRows.length} 条学生名单？全部审核期访问记录也会一并删除，此操作不可恢复，但不会删除老师账号。`
+        `确认删除全部 ${overview.stats.studentCount} 条学生名单？全部审核期访问记录也会一并删除，此操作不可恢复，但不会删除老师账号。`
       )
     ) {
       return;
@@ -526,7 +538,7 @@ function Dashboard({
 
     setStudentPage(1);
     setPendingReviewPage(1);
-    setStatus(`已删除全部学生名单及审核期访问记录：${data.deletedCount ?? studentRows.length} 条学生`);
+    setStatus(`已删除全部学生名单及审核期访问记录：${data.deletedCount ?? overview.stats.studentCount} 条学生`);
     await refreshOverview();
     await refreshPendingReviewLogs(1);
   }
@@ -544,7 +556,12 @@ function Dashboard({
     window.location.reload();
   }
 
-  function exportQueryStatus() {
+  async function exportQueryStatus() {
+    setStatus("正在准备全部学生查询情况，请稍候...");
+    try {
+    const response = await fetch("/api/teacher/students", { cache: "no-store" });
+    if (!response.ok) throw new Error(`导出失败（${response.status}）`);
+    const exportRows: Overview["students"] = await response.json();
     const headers = [
       "学生姓名",
       "成绩",
@@ -562,7 +579,7 @@ function Dashboard({
       "学生消息数",
       "录取结果"
     ];
-    const rows = studentRows.map((student) => [
+    const rows = exportRows.map((student) => [
       student.studentName,
       student.score,
       student.overallScore ?? "",
@@ -590,6 +607,9 @@ function Dashboard({
     link.remove();
     URL.revokeObjectURL(url);
     setStatus("已导出学生查询情况");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "导出失败，请重试");
+    }
   }
 
   async function exportPendingReviewLogs() {
@@ -705,19 +725,21 @@ function Dashboard({
             <p>
               支持 .xlsx 或 .csv，表头为：学生姓名、成绩、老师姓名、班级类型、课线、战区、作业次数、视频次数、学生消息数。课线填写 Python、探月、小火箭、幼儿或 C++，用于匹配专属规划和时间表物料；Python 英才班、幼儿及 B 端低龄请在班级类型中填写英才班，B 端 C++ 填写科特班。综合得分由系统自动生成；旧表未填写课线时默认使用探月。
             </p>
-            <input ref={studentImportRef} type="file" accept=".xlsx,.csv" />
-            <button onClick={() => uploadFile("/api/admin/students/import", studentImportRef.current, "学生成绩")}>
+            <input ref={studentImportRef} type="file" accept=".xlsx,.csv" disabled={uploadBusy} />
+            <button disabled={uploadBusy} onClick={() => uploadFile("/api/admin/students/import", studentImportRef.current, "学生成绩")}>
               导入学生成绩
             </button>
+            {upload?.endpoint === "/api/admin/students/import" ? <UploadProgress upload={upload} /> : null}
           </section>
 
           <section className="tool-panel">
             <h3>老师账号</h3>
             <p>支持 .xlsx 或 .csv，表头为：老师姓名、密码。未填密码时默认 bcm666。</p>
-            <input ref={teacherImportRef} type="file" accept=".xlsx,.csv" />
-            <button onClick={() => uploadFile("/api/admin/teachers/import", teacherImportRef.current, "老师账号")}>
+            <input ref={teacherImportRef} type="file" accept=".xlsx,.csv" disabled={uploadBusy} />
+            <button disabled={uploadBusy} onClick={() => uploadFile("/api/admin/teachers/import", teacherImportRef.current, "老师账号")}>
               导入老师账号
             </button>
+            {upload?.endpoint === "/api/admin/teachers/import" ? <UploadProgress upload={upload} /> : null}
           </section>
         </div>
       ) : null}
@@ -797,7 +819,7 @@ function Dashboard({
           <div className="table-panel-head">
             <div>
               <h3>老师账号管理</h3>
-              <p>共 {teacherRows.length} 个老师账号，第 {teacherPage} / {teacherPageCount} 页，每页 {TEACHER_PAGE_SIZE} 条</p>
+              <p>共 {teacherData?.total ?? "—"} 个老师账号，第 {teacherPage} / {teacherPageCount} 页，每页 {TEACHER_PAGE_SIZE} 条</p>
             </div>
             <button
               disabled={selectedTeacherIds.length === 0}
@@ -828,7 +850,10 @@ function Dashboard({
                 </tr>
               </thead>
               <tbody>
-                {visibleTeacherRows.map((teacher) => (
+                {teacherLoading || teacherError ? <tr><td colSpan={4}>
+                  {teacherError || "正在加载老师账号..."}
+                  {teacherError ? <button onClick={() => setListRevision((value) => value + 1)}>重试</button> : null}
+                </td></tr> : visibleTeacherRows.map((teacher) => (
                     <tr key={teacher.id}>
                       <td>
                         <input
@@ -870,7 +895,7 @@ function Dashboard({
                       </td>
                     </tr>
                   ))}
-                {visibleTeacherRows.length === 0 ? (
+                {!teacherLoading && !teacherError && visibleTeacherRows.length === 0 ? (
                   <tr>
                     <td colSpan={4}>暂无老师账号</td>
                   </tr>
@@ -879,14 +904,14 @@ function Dashboard({
             </table>
           </div>
           <div className="pagination">
-            <button disabled={teacherPage <= 1} onClick={() => setTeacherPage((page) => Math.max(1, page - 1))}>
+            <button disabled={teacherLoading || teacherPage <= 1} onClick={() => setTeacherPage((page) => Math.max(1, page - 1))}>
               上一页
             </button>
             <span>
               第 {teacherPage} / {teacherPageCount} 页，每页 {TEACHER_PAGE_SIZE} 条
             </span>
             <button
-              disabled={teacherPage >= teacherPageCount}
+              disabled={teacherLoading || teacherPage >= teacherPageCount}
               onClick={() => setTeacherPage((page) => Math.min(teacherPageCount, page + 1))}
             >
               下一页
@@ -978,13 +1003,13 @@ function Dashboard({
           </div>
           <div className="table-actions">
             <span className="table-count">
-              共 {filteredStudentRows.length} 人，第 {studentPage} / {studentPageCount} 页
+              共 {studentData?.total ?? "—"} 人，第 {studentPage} / {studentPageCount} 页
             </span>
             {isAdmin ? (
               <>
               <button onClick={exportQueryStatus}>导出查询情况</button>
               <button
-                disabled={studentRows.length === 0}
+                disabled={!overview?.stats.studentCount || uploadBusy}
                 onClick={() => void deleteAllStudentRows()}
               >
                 删除全部学生名单
@@ -1015,7 +1040,10 @@ function Dashboard({
               </tr>
             </thead>
             <tbody>
-              {visibleStudentRows.map((student) => (
+              {studentLoading || studentError ? <tr><td colSpan={15}>
+                {studentError || "正在加载学生名单..."}
+                {studentError ? <button onClick={() => setListRevision((value) => value + 1)}>重试</button> : null}
+              </td></tr> : visibleStudentRows.map((student) => (
                 <tr key={student.id}>
                   <td>{student.studentName}</td>
                   <td>{student.score}</td>
@@ -1087,7 +1115,7 @@ function Dashboard({
                   </td>
                 </tr>
               ))}
-              {visibleStudentRows.length === 0 ? (
+              {!studentLoading && !studentError && visibleStudentRows.length === 0 ? (
                 <tr>
                   <td colSpan={15}>没有匹配的学生</td>
                 </tr>
@@ -1096,14 +1124,14 @@ function Dashboard({
           </table>
         </div>
         <div className="pagination">
-          <button disabled={studentPage <= 1} onClick={() => setStudentPage((page) => Math.max(1, page - 1))}>
+          <button disabled={studentLoading || studentPage <= 1} onClick={() => setStudentPage((page) => Math.max(1, page - 1))}>
             上一页
           </button>
           <span>
             第 {studentPage} / {studentPageCount} 页，每页 {STUDENT_PAGE_SIZE} 条
           </span>
           <button
-            disabled={studentPage >= studentPageCount}
+            disabled={studentLoading || studentPage >= studentPageCount}
             onClick={() => setStudentPage((page) => Math.min(studentPageCount, page + 1))}
           >
             下一页
@@ -1112,6 +1140,17 @@ function Dashboard({
       </section>
     </section>
   );
+}
+
+function UploadProgress({ upload }: { upload: { phase: string; percent: number | null; message: string } }) {
+  return <div className="console-message" role={upload.phase === "error" ? "alert" : "status"} aria-live="polite">
+    <p>{upload.message}</p>
+    {upload.phase === "uploading" ? <>
+      <progress aria-label="文件上传进度" max={100} value={upload.percent ?? undefined} style={{ width: "100%" }} />
+      <span>{upload.percent === null ? "正在上传..." : `上传进度 ${upload.percent}%`}</span>
+    </> : null}
+    {upload.phase === "processing" ? <progress aria-label="正在导入数据" style={{ width: "100%" }} /> : null}
+  </div>;
 }
 
 function Metric({ label, value }: { label: string; value: number | string }) {

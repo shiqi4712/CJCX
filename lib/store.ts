@@ -413,6 +413,105 @@ export async function login(account: string, password: string) {
   return teacher && (await verifyPassword(password, teacher.passwordHash)) ? teacher : null;
 }
 
+export async function getConsoleSummary(role: Role, teacherName?: string) {
+  await ensureReady();
+  const empty = () => ({ studentCount: 0, admittedCount: 0, queriedCount: 0, pendingCount: 0, queryCount: 0 });
+  let warZones: Array<ReturnType<typeof empty> & { value: string; label: string }>;
+  let teacherCount: number;
+  if (hasDatabase()) {
+    const rows = await getSql().query(`SELECT TRIM(COALESCE(war_zone, '')) AS zone,
+      COUNT(*) AS total,
+      SUM(CASE WHEN admission = '已录取' THEN 1 ELSE 0 END) AS admitted,
+      SUM(CASE WHEN queried = true THEN 1 ELSE 0 END) AS queried_total,
+      COALESCE(SUM(query_count), 0) AS queries
+      FROM students ${role === "admin" ? "" : "WHERE teacher_name = $1"}
+      GROUP BY TRIM(COALESCE(war_zone, ''))`, role === "admin" ? [] : [teacherName]);
+    warZones = rows.map((row) => ({
+      value: String(row.zone) || "__empty_war_zone__", label: String(row.zone) || "未设置战区",
+      studentCount: Number(row.total), admittedCount: Number(row.admitted),
+      queriedCount: Number(row.queried_total), pendingCount: Number(row.total) - Number(row.queried_total),
+      queryCount: Number(row.queries)
+    }));
+    const counts = role === "admin" ? await getSql().query("SELECT COUNT(*) AS total FROM teacher_accounts WHERE role = 'teacher' AND active = true") : [];
+    teacherCount = Number(counts[0]?.total ?? 0);
+  } else {
+    const zones = new Map<string, ReturnType<typeof empty>>();
+    for (const student of memory.students) {
+      if (role !== "admin" && student.teacherName !== teacherName) continue;
+      const zone = student.warZone.trim();
+      const stats = zones.get(zone) ?? empty();
+      stats.studentCount++;
+      if (student.admission === "已录取") stats.admittedCount++;
+      if (student.queried) stats.queriedCount++; else stats.pendingCount++;
+      stats.queryCount += student.queryCount;
+      zones.set(zone, stats);
+    }
+    warZones = Array.from(zones, ([zone, stats]) => ({ ...stats, value: zone || "__empty_war_zone__", label: zone || "未设置战区" }));
+    teacherCount = role === "admin" ? memory.teachers.filter((teacher) => teacher.role === "teacher" && teacher.active).length : 0;
+  }
+  warZones.sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
+  const stats = warZones.reduce((total, zone) => ({
+    studentCount: total.studentCount + zone.studentCount, admittedCount: total.admittedCount + zone.admittedCount,
+    queriedCount: total.queriedCount + zone.queriedCount, pendingCount: total.pendingCount + zone.pendingCount,
+    queryCount: total.queryCount + zone.queryCount
+  }), empty());
+  return { stats: { ...stats, teacherCount }, warZones, settings: await getQueryReleaseSettings(),
+    storageMode: hasDatabase() ? getSql().dialect : "memory" as const };
+}
+
+function consolePage(requested: number, total: number, size: number) {
+  const pageCount = Math.max(1, Math.ceil(total / size));
+  const page = Math.min(pageCount, Math.max(1, Math.floor(Number.isFinite(requested) ? requested : 1)));
+  return { page, pageCount, total };
+}
+
+export async function getConsoleStudents(role: Role, teacherName?: string, requestedPage = 1, search = "", zone = "all") {
+  await ensureReady();
+  const size = 20;
+  search = search.trim().toLowerCase();
+  const compact = ({ detail, advice, createdAt, updatedAt, ...student }: Student) => student;
+  if (!hasDatabase()) {
+    const rows = memory.students.filter((student) => (role === "admin" || student.teacherName === teacherName)
+      && student.studentName.toLowerCase().includes(search)
+      && (zone === "all" || (student.warZone.trim() || "__empty_war_zone__") === zone))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+    const paging = consolePage(requestedPage, rows.length, size);
+    return { ...paging, rows: rows.slice((paging.page - 1) * size, paging.page * size).map(compact) };
+  }
+  const values: unknown[] = [];
+  const conditions: string[] = [];
+  const bind = (value: unknown) => { values.push(value); return `$${values.length}`; };
+  if (role !== "admin") conditions.push(`teacher_name = ${bind(teacherName)}`);
+  if (search) conditions.push(`LOWER(student_name) LIKE ${bind(`%${search.replace(/[!%_]/g, "!$&")}%`)} ESCAPE '!'`);
+  if (zone !== "all") conditions.push(`TRIM(COALESCE(war_zone, '')) = ${bind(zone === "__empty_war_zone__" ? "" : zone)}`);
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const counts = await getSql().query(`SELECT COUNT(*) AS total FROM students ${where}`, values);
+  const paging = consolePage(requestedPage, Number(counts[0].total), size);
+  const rows = await getSql().query(`SELECT id, student_name, teacher_name, score, overall_score,
+    program_type, course_line, war_zone, admission, class_name, queried, query_count, last_query,
+    preferred_course_time, homework_lesson_count, video_count, message_count, published, created_at, updated_at
+    FROM students ${where} ORDER BY created_at DESC, id DESC LIMIT ${size} OFFSET ${(paging.page - 1) * size}`, values);
+  return { ...paging, rows: rows.map(mapStudent).map(compact) };
+}
+
+export async function getConsoleTeachers(requestedPage = 1) {
+  await ensureReady();
+  const size = 10;
+  if (!hasDatabase()) {
+    const rows = memory.teachers.filter((teacher) => teacher.role === "teacher")
+      .sort((a, b) => a.teacherName.localeCompare(b.teacherName));
+    const paging = consolePage(requestedPage, rows.length, size);
+    return { ...paging, rows: rows.slice((paging.page - 1) * size, paging.page * size)
+      .map(({ id, teacherName, role, active }) => ({ id, teacherName, role, active })) };
+  }
+  const counts = await getSql().query("SELECT COUNT(*) AS total FROM teacher_accounts WHERE role = 'teacher'");
+  const paging = consolePage(requestedPage, Number(counts[0].total), size);
+  const rows = await getSql().query(`SELECT id, teacher_name, role, active FROM teacher_accounts
+    WHERE role = 'teacher' ORDER BY teacher_name, id LIMIT ${size} OFFSET ${(paging.page - 1) * size}`);
+  return { ...paging, rows: rows.map((row) => ({ id: String(row.id), teacherName: String(row.teacher_name),
+    role: row.role as Role, active: Boolean(row.active) })) };
+}
+
 export async function getOverview(role: Role, teacherName?: string) {
   await ensureReady();
   let students: Student[];

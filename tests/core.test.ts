@@ -20,6 +20,9 @@ import { getAbilityRankByOverallScore } from "../lib/result-scoring";
 import { parseSheetFile, toStudentRows } from "../lib/sheets";
 import {
   getOverview,
+  getConsoleSummary,
+  getConsoleStudents,
+  getConsoleTeachers,
   importStudents,
   importTeachers,
   login,
@@ -36,6 +39,54 @@ import { buildCoursePlanData, getCoursePlanLine, getCoursePlanLineForPayload, no
 
 process.env.SESSION_SECRET = "test-session-secret-with-sufficient-entropy";
 delete process.env.DATABASE_URL;
+
+test("console summary and server pages retain full counts and teacher isolation", async () => {
+  resetMemoryStoreForTests();
+  await importStudents(Array.from({ length: 45 }, (_, index) => ({
+    studentName: `分页学生${String(index).padStart(2, "0")}`, score: index % 2 ? "B" : "A+",
+    teacherName: index < 30 ? "分页老师甲" : "分页老师乙", warZone: index < 25 ? "东区" : ""
+  })));
+  await queryStudentByName("分页学生00");
+  const summary = await getConsoleSummary("admin");
+  const full = await getOverview("admin");
+  for (const key of ["studentCount", "teacherCount", "admittedCount", "queriedCount", "pendingCount"] as const) {
+    assert.equal(summary.stats[key], full.stats[key]);
+  }
+  assert.equal(summary.stats.queryCount, 1);
+  assert.equal(summary.warZones.find((zone) => zone.value === "东区")?.studentCount, 25);
+  assert.equal(summary.warZones.find((zone) => zone.value === "__empty_war_zone__")?.studentCount, 20);
+  assert.equal("students" in summary, false);
+  assert.equal("teachers" in summary, false);
+  const pages = await Promise.all([1, 2, 3].map((page) => getConsoleStudents("admin", undefined, page)));
+  assert.deepEqual(pages.map((page) => page.rows.length), [20, 20, 5]);
+  assert.equal(new Set(pages.flatMap((page) => page.rows.map((student) => student.id))).size, 45);
+  assert.equal(pages[0].total, 45);
+  assert.equal("detail" in pages[0].rows[0], false);
+  assert.equal("advice" in pages[0].rows[0], false);
+  assert.equal((await getConsoleStudents("admin", undefined, 999)).page, 3);
+  assert.equal((await getConsoleStudents("admin", undefined, NaN)).page, 1);
+  assert.equal((await getConsoleStudents("admin", undefined, 1, "分页学生44")).total, 1);
+  assert.equal((await getConsoleStudents("admin", undefined, 1, "", "东区")).total, 25);
+  assert.equal((await getConsoleStudents("admin", undefined, 1, "", "__empty_war_zone__")).total, 20);
+  assert.equal((await getConsoleSummary("teacher", "分页老师乙")).stats.studentCount, 15);
+  assert.equal((await getConsoleStudents("teacher", "分页老师乙", 1, "分页学生00")).total, 0);
+  assert.equal((await getConsoleStudents("teacher", "分页老师乙", 1, "", "东区")).total, 0);
+  assert.equal((await getConsoleStudents("teacher", "分页老师乙")).rows.length, 15);
+});
+
+test("teacher pages exclude administrators and password hashes, and clamp after deletion", async () => {
+  resetMemoryStoreForTests();
+  await importTeachers(Array.from({ length: 12 }, (_, i) => ({ teacherName: `分页老师${String(i).padStart(2, "0")}`, password: "testpass123" })));
+  const first = await getConsoleTeachers(1);
+  const second = await getConsoleTeachers(2);
+  assert.equal(first.total, 12);
+  assert.equal(first.rows.length, 10);
+  assert.equal(second.rows.length, 2);
+  assert.equal("passwordHash" in first.rows[0], false);
+  assert.ok(first.rows.every((teacher) => teacher.role === "teacher"));
+  await deleteTeachers(second.rows.map((teacher) => teacher.id));
+  assert.equal((await getConsoleTeachers(2)).page, 1);
+});
 
 test("subdomain queries and reimports isolate the original five course groups", async () => {
   resetMemoryStoreForTests();

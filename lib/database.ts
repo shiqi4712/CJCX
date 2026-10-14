@@ -18,6 +18,16 @@ type SqlClient = {
 let client: SqlClient | null = null;
 let schemaPromise: Promise<void> | null = null;
 
+function reportQueryTime(text: string, started: number, dialect: SqlDialect) {
+  const durationMs = Math.round(performance.now() - started);
+  if (durationMs < 1000 && process.env.DATABASE_QUERY_TIMING !== "true") return;
+  // Never log parameters or full SQL: they may contain student data or credentials.
+  console.info("database-query-timing", {
+    dialect, durationMs, operation: text.trim().split(/\s+/)[0].toUpperCase(),
+    table: text.match(/\b(?:FROM|UPDATE|INTO)\s+([a-z_]+)/i)?.[1] ?? "schema"
+  });
+}
+
 export function hasDatabase() {
   return Boolean(process.env.DATABASE_URL);
 }
@@ -63,7 +73,9 @@ export function getSql() {
       dialect,
       async execute(text, values) {
         const query = toMySqlQuery(text, values ?? []);
-        const [result] = await pool.execute(query.text, query.values as never[]);
+        const started = performance.now();
+        const [result] = await pool.execute(query.text, query.values as never[])
+          .finally(() => reportQueryTime(text, started, dialect));
         return {
           rows: Array.isArray(result) ? (result as Record<string, unknown>[]) : [],
           affectedRows: Array.isArray(result) ? 0 : Number(result.affectedRows ?? 0)
@@ -85,7 +97,8 @@ export function getSql() {
   client = {
     dialect,
     async execute(text, values) {
-      const result = await pool.query(text, values);
+      const started = performance.now();
+      const result = await pool.query(text, values).finally(() => reportQueryTime(text, started, dialect));
       return {
         rows: result.rows as Record<string, unknown>[],
         affectedRows: result.rowCount ?? 0

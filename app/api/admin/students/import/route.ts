@@ -36,8 +36,13 @@ export async function POST(request: Request) {
     }
 
     const result = await importStudents(rows);
-    await archiveUploadedFile("imports/students", file);
-    return NextResponse.json(result);
+    let archiveWarning: string | undefined;
+    try {
+      await archiveUploadedFile("imports/students", file);
+    } catch {
+      archiveWarning = "成绩已导入，但原文件备份失败";
+    }
+    return NextResponse.json({ ...result, archiveWarning });
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "学生成绩导入失败" },
