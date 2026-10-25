@@ -595,7 +595,8 @@ export async function importStudents(rows: SheetStudentRow[]) {
       const existing = memory.students.find(
         (student) =>
           normalizeName(student.studentName) === normalizeName(row.studentName) &&
-          student.courseLine === courseLine && student.className === admission.className
+          student.courseLine === courseLine && student.className === admission.className &&
+          student.programType === programType
       );
       if (existing) {
         Object.assign(existing, {
@@ -650,8 +651,8 @@ export async function importStudents(rows: SheetStudentRow[]) {
 
     {
       const existing = (await sql.query(
-        "SELECT id FROM students WHERE normalized_name=$1 AND course_line=$2 AND class_name=$3 ORDER BY created_at ASC, id ASC LIMIT 1",
-        [normalizeName(row.studentName), courseLine, admission.className]
+        "SELECT id FROM students WHERE normalized_name=$1 AND course_line=$2 AND class_name=$3 AND program_type=$4 ORDER BY created_at ASC, id ASC LIMIT 1",
+        [normalizeName(row.studentName), courseLine, admission.className, programType]
       )) as unknown as Array<{ id: string }>;
       if (existing[0]) {
         await sql.query(
@@ -685,9 +686,9 @@ export async function importStudents(rows: SheetStudentRow[]) {
       const normalizedName = normalizeName(row.studentName);
       const existing = (await sql.query(
         `SELECT id FROM students
-         WHERE normalized_name = $1 AND course_line=$3 AND class_name=$4 AND (teacher_name = $2 OR (teacher_name IS NULL AND $2 IS NULL))
+         WHERE normalized_name = $1 AND course_line=$3 AND class_name=$4 AND program_type=$5 AND (teacher_name = $2 OR (teacher_name IS NULL AND $2 IS NULL))
          LIMIT 1`,
-        [normalizedName, teacherName, courseLine, admission.className]
+        [normalizedName, teacherName, courseLine, admission.className, programType]
       )) as unknown as Array<{ id: string }>;
 
       if (existing[0]) {
@@ -750,7 +751,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
          id, student_name, normalized_name, teacher_name, score, overall_score, program_type, war_zone, admission, class_name,
          detail, advice, homework_lesson_count, video_count, message_count, course_line
        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-       ON CONFLICT (normalized_name, teacher_name, course_line, class_name) DO UPDATE SET
+       ON CONFLICT (normalized_name, teacher_name, course_line, class_name, program_type) DO UPDATE SET
          student_name = EXCLUDED.student_name, score = EXCLUDED.score, overall_score = EXCLUDED.overall_score,
          program_type = EXCLUDED.program_type,
          war_zone = EXCLUDED.war_zone,

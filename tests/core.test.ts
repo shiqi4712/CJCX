@@ -120,6 +120,24 @@ test("subdomain queries and reimports isolate the original five course groups", 
   assert.equal(queryScopeForHost("bcmty.cn"), undefined);
 });
 
+test("rejected Python and preschool students remain queryable in their imported class", async () => {
+  resetMemoryStoreForTests();
+  await importStudents([
+    { studentName: "未录取同名", score: "B", teacherName: "未分配老师", courseLine: "python", programType: "科特班" },
+    { studentName: "未录取同名", score: "B", teacherName: "未分配老师", courseLine: "python", programType: "英才班" },
+    { studentName: "未录取低龄", score: "B", teacherName: "未分配老师", courseLine: "preschool", programType: "英才班" }
+  ]);
+  const python = await queryStudentByName("未录取同名", queryScopeForEntry("pyyingcai"));
+  const kete = await queryStudentByName("未录取同名", queryScopeForEntry("pykete"));
+  const preschool = await queryStudentByName("未录取低龄", queryScopeForEntry("yeyingcai"));
+  assert.equal(python?.admission, "未录取");
+  assert.equal(python?.programType, "英才特训营");
+  assert.equal(kete?.programType, "科特班");
+  assert.equal(preschool?.admission, "未录取");
+  assert.equal((await queryStudentByName("未录取低龄", queryScopeForEntry("bpreschool")))?.id, preschool?.id);
+  assert.equal(await queryStudentByName("未录取低龄", queryScopeForEntry("pyyingcai")), null);
+});
+
 test("B-side elite entries use only their three course materials", () => {
   assert.equal(getCoursePlanLineForPayload({ courseLine: "python", targetClass: "英才班", entry: "bpython" }).goalImage, "/images/course-plan/b-yingcai/python-goal.jpg");
   assert.equal(getCoursePlanLineForPayload({ courseLine: "moon", targetClass: "英才班", entry: "bmoon" }).planDetailImage, "/images/course-plan/b-yingcai/moon-plan.jpg");

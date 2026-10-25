@@ -24,9 +24,9 @@ export function queryScopeForHost(host: string): QueryScope | undefined {
   return scope;
 }
 
-export function matchesQueryScope(student: { courseLine: string; className: string }, scope?: QueryScope) {
+export function matchesQueryScope(student: { courseLine: string; className: string; programType?: string }, scope?: QueryScope) {
   return !scope || (student.courseLine === scope.courseLine &&
-    (scope.yingcai === undefined || isYingcaiClass(student.className) === scope.yingcai));
+    (scope.yingcai === undefined || isYingcaiClass(student.programType ?? student.className) === scope.yingcai));
 }
 
 export function queryScopeForEntry(entry: string): QueryScope {
