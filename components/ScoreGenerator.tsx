@@ -3,11 +3,19 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
+function todayForDateInput() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
 export function ScoreGenerator({ basePath = "/score-generator" }: { basePath?: string }) {
   const router = useRouter();
   const [studentName, setStudentName] = useState("");
   const [score, setScore] = useState("");
   const [className, setClassName] = useState("");
+  const [queryDate, setQueryDate] = useState(todayForDateInput);
   const [message, setMessage] = useState("");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -15,12 +23,12 @@ export function ScoreGenerator({ basePath = "/score-generator" }: { basePath?: s
     const name = studentName.trim();
     const group = className.trim();
     const level = score.trim().toUpperCase();
-    if (!name || !level || !group) {
-      setMessage("请输入学生姓名、成绩和班型。");
+    if (!name || !level || !group || !queryDate) {
+      setMessage("请输入学生姓名、成绩、班型和查询显示日期。");
       return;
     }
     setMessage("");
-    const params = new URLSearchParams({ name, score: level, class: group });
+    const params = new URLSearchParams({ name, score: level, class: group, date: queryDate });
     router.push(`${basePath}/result?${params}`);
   }
 
@@ -59,6 +67,10 @@ export function ScoreGenerator({ basePath = "/score-generator" }: { basePath?: s
               <option value="育才班">育才班</option>
               <option value="英才班">英才班</option>
             </select>
+          </label>
+          <label>
+            <span>查询显示日期</span>
+            <input type="date" value={queryDate} onChange={(event) => setQueryDate(event.target.value)} required />
           </label>
           <button type="submit">查看成绩页面</button>
         </form>

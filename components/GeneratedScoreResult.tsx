@@ -20,6 +20,16 @@ function generatedOverallScore(id: string, admitted: boolean) {
   return ((min + (numeric % (max - min + 1))) / 100).toFixed(2);
 }
 
+function displayQueryDate(value: string | null) {
+  if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const date = new Date(`${value}T00:00:00Z`);
+    if (!Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value) {
+      return date.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+    }
+  }
+  return new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
+}
+
 export function GeneratedScoreResult() {
   const params = useSearchParams();
   const studentName = params.get("name")?.trim() ?? "";
@@ -58,7 +68,7 @@ export function GeneratedScoreResult() {
     homeworkLessonCount: 3,
     videoCount: 3,
     messageCount: 24,
-    queryDate: new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })
+    queryDate: displayQueryDate(params.get("date"))
   };
 
   return (

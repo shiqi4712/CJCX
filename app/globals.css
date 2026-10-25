@@ -1276,6 +1276,24 @@ button {
   box-shadow: none;
 }
 
+.score-generator-shell .hero-copy p,
+.score-generator-shell .hero-brand-slogan {
+  font-size: 32px;
+  letter-spacing: 0;
+  white-space: normal;
+}
+
+.score-generator-shell .lookup-panel select {
+  width: 100%;
+  height: 52px;
+  padding: 0 16px;
+  border: 1px solid rgba(253, 195, 111, 0.28);
+  border-radius: 15px;
+  color: #5f0704;
+  background: #fff4e7;
+  font-size: 14px;
+}
+
 .lookup-panel button {
   min-height: 46px;
   margin-top: 16px;
