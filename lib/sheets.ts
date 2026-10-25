@@ -1,9 +1,20 @@
 import { DOMParser, type Element as XmlElement } from "@xmldom/xmldom";
 import JSZip from "jszip";
+import { parseCoursePlanLine } from "./course-plan-config";
 import type { SheetStudentRow, SheetTeacherRow } from "./types";
 
 type RecordRow = Record<string, unknown>;
 type CellValue = string | number | boolean | null;
+
+export function isSheetFile(value: unknown): value is File {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { name?: unknown; size?: unknown; arrayBuffer?: unknown };
+  return (
+    typeof candidate.name === "string" &&
+    typeof candidate.size === "number" &&
+    typeof candidate.arrayBuffer === "function"
+  );
+}
 
 export async function parseSheetFile(file: File): Promise<RecordRow[]> {
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -21,10 +32,34 @@ export async function parseSheetFile(file: File): Promise<RecordRow[]> {
 }
 
 function parseCsv(text: string): RecordRow[] {
-  const rows = text
-    .split(/\r?\n/)
-    .map((line) => line.split(",").map((cell) => cell.trim()))
-    .filter((row) => row.some(Boolean));
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (char === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      row.push(cell.trim());
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(cell.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+  row.push(cell.trim());
+  if (row.some(Boolean)) rows.push(row);
 
   return matrixToRecords(rows);
 }
@@ -141,11 +176,66 @@ function parseXml(xml: string) {
 
 export function toStudentRows(rows: RecordRow[]): SheetStudentRow[] {
   return rows
-    .map((row) => ({
-      studentName: String(row["学生姓名"] ?? "").trim(),
-      score: String(row["成绩"] ?? "").trim()
-    }))
+    .map((row) => {
+      const warZoneValue = getRowValue(row, ["战区", "战区名称"]);
+      const courseLineValue = getRowValue(row, ["课线", "课程线", "课程课线"]);
+      return {
+        studentName: String(getRowValue(row, ["学生姓名", "学员姓名", "姓名"]) ?? "").trim(),
+        score: String(getRowValue(row, ["成绩", "等级", "录取成绩"]) ?? "").trim(),
+        overallScore:
+          String(getRowValue(row, ["综合得分", "分数", "得分", "综合分数", "总分"]) ?? "").trim() || null,
+        teacherName: String(getRowValue(row, ["老师姓名", "老师", "教师姓名", "负责老师"]) ?? "未分配老师").trim() || "未分配老师",
+        programType:
+          String(getRowValue(row, ["班级类型", "班型", "录取班级", "班级", "项目类型"]) ?? "").trim() ||
+          undefined,
+        courseLine: parseCoursePlanLine(courseLineValue === undefined ? undefined : String(courseLineValue)),
+        ...(warZoneValue !== undefined ? { warZone: String(warZoneValue).trim() } : {}),
+        homeworkLessonCount: toNonNegativeInteger(
+          getRowValue(row, [
+            "提交作业课次数",
+            "提交作业次数",
+            "作业提交次数",
+            "作业次数",
+            "提交作业数",
+            "作业课次数",
+            "作业数量"
+          ])
+        ),
+        videoCount: toNonNegativeInteger(
+          getRowValue(row, ["录制视频次数", "视频录制次数", "录视频次数", "视频次数", "录制视频数", "视频数量"])
+        ),
+        messageCount: toNonNegativeInteger(
+          getRowValue(row, ["学生消息数", "消息条数", "互动消息数", "消息数", "消息数量", "学生消息数量"])
+        )
+      };
+    })
     .filter((row) => row.studentName && row.score);
+}
+
+function getRowValue(row: RecordRow, aliases: string[]) {
+  for (const alias of aliases) {
+    if (row[alias] !== undefined) return row[alias];
+  }
+
+  const normalizedAliases = aliases.map(normalizeHeader);
+  const entry = Object.entries(row).find(([key]) => normalizedAliases.includes(normalizeHeader(key)));
+  return entry?.[1];
+}
+
+function normalizeHeader(value: string) {
+  return value
+    .replace(/[（(].*?[）)]/gu, "")
+    .replace(/\s+/gu, "")
+    .replace(/[^\p{L}\p{N}%+]/gu, "")
+    .toLowerCase();
+}
+
+function toNonNegativeInteger(value: unknown) {
+  const match = String(value ?? "")
+    .trim()
+    .match(/\d+(?:\.\d+)?/);
+  const numeric = match ? Number(match[0]) : 0;
+  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : 0;
 }
 
 export function toTeacherRows(rows: RecordRow[]): SheetTeacherRow[] {

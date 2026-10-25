@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>五维能力分数区间对比</title>
+  <style>
+    :root {
+      --deep: #17333a;
+      --main: #20bd8d;
+      --soft: #f4fff9;
+      --mint: #b9f6df;
+      --ink: #17333a;
+      --muted: #6d8387;
+      --line: rgba(32, 189, 141, .16);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(185, 246, 223, .45), transparent 30%),
+        radial-gradient(circle at 94% 0%, rgba(32, 189, 141, .14), transparent 34%),
+        linear-gradient(135deg, #fbfffd, #edf9f4);
+    }
+
+    .page {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 30px 24px 48px;
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-end;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--main);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      letter-spacing: -.03em;
+    }
+
+    .top p:last-child {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .note {
+      max-width: 430px;
+      padding: 14px 17px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .78);
+      color: #527174;
+      line-height: 1.6;
+      box-shadow: 0 16px 42px rgba(32, 189, 141, .08);
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: repeat(2, 390px);
+      gap: 24px;
+      justify-content: center;
+      align-items: start;
+    }
+
+    .label {
+      margin: 0 0 10px;
+      color: #5d7b7f;
+      font-size: 14px;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .phone {
+      width: 390px;
+      min-height: 720px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .95);
+      border-radius: 32px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(35, 86, 86, .15);
+    }
+
+    .result {
+      padding: 12px;
+      background:
+        radial-gradient(circle at 80% 0%, rgba(185, 246, 223, .58), transparent 28%),
+        linear-gradient(180deg, #f4fff9, #fff);
+    }
+
+    .result-card {
+      min-height: 696px;
+      overflow: hidden;
+      border: 2px solid rgba(32, 189, 141, .22);
+      border-radius: 28px;
+      background: #fff;
+    }
+
+    .result-head {
+      padding: 20px 18px 22px;
+      text-align: center;
+      color: #fff;
+      background:
+        radial-gradient(circle at 80% 10%, rgba(185, 246, 223, .26), transparent 28%),
+        linear-gradient(135deg, var(--main), var(--deep));
+    }
+
+    .logo {
+      display: block;
+      width: 100%;
+      max-width: 270px;
+      margin: 0 auto;
+      filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .16));
+    }
+
+    .result-head h2 {
+      margin: 12px 0 0;
+      font-size: 22px;
+      letter-spacing: -.02em;
+    }
+
+    .result-body {
+      padding: 18px 17px 22px;
+    }
+
+    .congrats {
+      margin: 0;
+      color: var(--deep);
+      text-align: center;
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1.45;
+    }
+
+    .admit {
+      margin: 8px 0 15px;
+      color: #129862;
+      text-align: center;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .metric {
+      padding: 12px 6px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      text-align: center;
+      background: var(--soft);
+    }
+
+    .metric b {
+      display: block;
+      color: var(--deep);
+      font-size: 18px;
+    }
+
+    .metric span,
+    .radar-copy span,
+    .copy-card p {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .radar-card {
+      display: grid;
+      grid-template-columns: 148px 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--soft), #fff);
+    }
+
+    .radar {
+      width: 148px;
+      height: 132px;
+      overflow: visible;
+    }
+
+    .grid-line { fill: none; stroke: rgba(32, 189, 141, .26); }
+    .axis { stroke: rgba(32, 189, 141, .2); }
+    .shape { fill: rgba(32, 189, 141, .22); stroke: var(--main); stroke-width: 2; }
+    .dot { fill: #fff; stroke: var(--main); stroke-width: 2; }
+    .txt { fill: #42666b; font-size: 8.5px; font-weight: 800; text-anchor: middle; }
+
+    .radar-copy strong {
+      display: block;
+      color: var(--deep);
+      font-size: 14px;
+    }
+
+    .range-pill {
+      display: inline-flex;
+      margin-bottom: 8px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      color: #fff;
+      background: linear-gradient(180deg, var(--main), var(--deep));
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .copy-card {
+      margin-top: 10px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fff;
+    }
+
+    .copy-card h4 {
+      margin: 0 0 6px;
+      color: var(--deep);
+      font-size: 14px;
+    }
+
+    .copy-card p { margin: 0; }
+
+    .option-b {
+      --main: #54a6ff;
+      --deep: #234a7d;
+      --soft: #f0f8ff;
+      --line: rgba(84, 166, 255, .18);
+    }
+
+    @media (max-width: 900px) {
+      .stage { grid-template-columns: 1fr; }
+      .phone { width: 100%; max-width: 390px; margin: 0 auto; }
+      .top { display: block; }
+      .note { max-width: none; margin-top: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="top">
+      <div>
+        <p class="eyebrow">Ability Score Compare</p>
+        <h1>五维能力 10 分制展示对比</h1>
+        <p>左侧是 9.6-9.9 窄区间，右侧是 9.0-9.9 宽区间，均保留两位小数。</p>
+      </div>
+      <div class="note">对比重点：右侧两项接近 9.0 后，五边形会明显内凹；左侧整体更饱满，更像“已录取学生”的能力档案。</div>
+    </header>
+
+    <section class="stage">
+      <div>
+        <p class="label">方案 A：9.6 - 9.9，两项约 9.6</p>
+        <result-card
+          title="能力整体更均衡"
+          range="9.60 - 9.90"
+          scores="逻辑思维:9.87,空间想象:9.61,专注表达:9.63,创新应用:9.89,学习潜力:9.78"
+          summary="五维能力整体处于高位，图形更饱满，适合已录取学生展示。"
+        ></result-card>
+      </div>
+
+      <div class="option-b">
+        <p class="label">方案 B：9.0 - 9.9，两项约 9.0</p>
+        <result-card
+          title="能力差异更明显"
+          range="9.00 - 9.90"
+          scores="逻辑思维:9.86,空间想象:9.08,专注表达:9.12,创新应用:9.78,学习潜力:9.54"
+          summary="五边形内凹更明显，更像真实测评报告，但对已录取家长的观感会弱一点。"
+        ></result-card>
+      </div>
+    </section>
+  </main>
+
+  <template id="result-template">
+    <div class="phone result">
+      <div class="result-card">
+        <div class="result-head">
+          <img class="logo" src="public/images/lab-logo-white.png" alt="logo">
+          <h2>英才特训营录取通知书</h2>
+        </div>
+        <div class="result-body">
+          <p class="congrats">恭喜 张三 同学</p>
+          <p class="admit">已获得录取资格</p>
+          <div class="metrics">
+            <div class="metric"><b>98.62</b><span>综合得分</span></div>
+            <div class="metric"><b>A+</b><span>综合等级</span></div>
+            <div class="metric"><b>前10%</b><span>能力档位</span></div>
+          </div>
+
+          <div class="radar-card">
+            <svg class="radar" viewBox="0 0 148 132" role="img" aria-label="五维能力图"></svg>
+            <div class="radar-copy">
+              <span class="range-pill"></span>
+              <strong></strong>
+              <span class="summary"></span>
+            </div>
+          </div>
+
+          <div class="copy-card">
+            <h4>孩子成长目标</h4>
+            <p>围绕逻辑思维、空间想象、专注表达、创新应用和学习潜力持续提升，帮助孩子积累科技特长。</p>
+          </div>
+          <div class="copy-card">
+            <h4>班级介绍</h4>
+            <p>依托 AI 实验室资源，结合教研、竞赛与阶段测评，为科创发展提供系统支持。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    const outer = [
+      [74, 10],
+      [132, 51],
+      [110, 118],
+      [38, 118],
+      [16, 51],
+    ];
+    const center = [74, 68];
+
+    function pointFor([x, y], score) {
+      const ratio = Number(score) / 10;
+      return [
+        center[0] + (x - center[0]) * ratio,
+        center[1] + (y - center[1]) * ratio,
+      ];
+    }
+
+    function polygon(points) {
+      return points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+    }
+
+    function makeEl(name, attrs = {}, text = "") {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+      Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+      if (text) el.textContent = text;
+      return el;
+    }
+
+    customElements.define("result-card", class extends HTMLElement {
+      connectedCallback() {
+        const clone = document.getElementById("result-template").content.cloneNode(true);
+        const rawScores = this.getAttribute("scores").split(",").map(item => {
+          const [name, value] = item.split(":");
+          return { name, value: Number(value) };
+        });
+
+        clone.querySelector(".range-pill").textContent = this.getAttribute("range");
+        clone.querySelector(".radar-copy strong").textContent = this.getAttribute("title");
+        clone.querySelector(".summary").textContent = this.getAttribute("summary");
+
+        const svg = clone.querySelector(".radar");
+        [1, .82, .64].forEach(scale => {
+          const pts = outer.map(([x, y]) => [
+            center[0] + (x - center[0]) * scale,
+            center[1] + (y - center[1]) * scale,
+          ]);
+          svg.appendChild(makeEl("polygon", { class: "grid-line", points: polygon(pts) }));
+        });
+        outer.forEach(([x, y]) => {
+          svg.appendChild(makeEl("line", { class: "axis", x1: center[0], y1: center[1], x2: x, y2: y }));
+        });
+
+        const valuePoints = rawScores.map((item, index) => pointFor(outer[index], item.value));
+        svg.appendChild(makeEl("polygon", { class: "shape", points: polygon(valuePoints) }));
+        valuePoints.forEach(([x, y]) => svg.appendChild(makeEl("circle", { class: "dot", cx: x, cy: y, r: 3 })));
+
+        const labels = [
+          [74, 8],
+          [134, 47],
+          [118, 130],
+          [30, 130],
+          [13, 47],
+        ];
+        rawScores.forEach((item, index) => {
+          const [x, y] = labels[index];
+          svg.appendChild(makeEl("text", { class: "txt", x, y }, `${item.name.replace("思维", "").replace("想象", "").replace("表达", "").replace("应用", "").replace("潜力", "")}${item.value.toFixed(2)}`));
+        });
+
+        this.replaceWith(clone);
+      }
+    });
+  </script>
+</body>
+</html>
