@@ -125,7 +125,8 @@ test("rejected Python and preschool students remain queryable in their imported 
   await importStudents([
     { studentName: "未录取同名", score: "B", teacherName: "未分配老师", courseLine: "python", programType: "科特班" },
     { studentName: "未录取同名", score: "B", teacherName: "未分配老师", courseLine: "python", programType: "英才班" },
-    { studentName: "未录取低龄", score: "B", teacherName: "未分配老师", courseLine: "preschool", programType: "英才班" }
+    { studentName: "未录取低龄", score: "B", teacherName: "未分配老师", courseLine: "preschool", programType: "英才班" },
+    { studentName: "未录取低龄", score: "B", teacherName: "未分配老师", courseLine: "lowage", programType: "英才班" }
   ]);
   const python = await queryStudentByName("未录取同名", queryScopeForEntry("pyyingcai"));
   const kete = await queryStudentByName("未录取同名", queryScopeForEntry("pykete"));
@@ -134,7 +135,8 @@ test("rejected Python and preschool students remain queryable in their imported 
   assert.equal(python?.programType, "英才特训营");
   assert.equal(kete?.programType, "科特班");
   assert.equal(preschool?.admission, "未录取");
-  assert.equal((await queryStudentByName("未录取低龄", queryScopeForEntry("bpreschool")))?.id, preschool?.id);
+  assert.equal((await queryStudentByName("未录取低龄", queryScopeForEntry("bpreschool")))?.courseLine, "lowage");
+  assert.notEqual((await queryStudentByName("未录取低龄", queryScopeForEntry("bpreschool")))?.id, preschool?.id);
   assert.equal(await queryStudentByName("未录取低龄", queryScopeForEntry("pyyingcai")), null);
 });
 
@@ -148,21 +150,49 @@ test("B-side elite entries use only their three course materials", () => {
 
 test("new B-side entries isolate low-age elite and C++ kete students", async () => {
   resetMemoryStoreForTests();
-  assert.deepEqual(queryScopeForEntry("bpreschool"), { courseLine: "preschool", yingcai: true });
+  assert.deepEqual(queryScopeForEntry("bpreschool"), { courseLine: "lowage", yingcai: true });
   assert.deepEqual(queryScopeForEntry("bcpp"), { courseLine: "cpp", yingcai: false });
   assert.equal(queryEntryPath("bcpp"), "/entry/bcpp");
   assert.equal(parseCoursePlanLine("C++"), "cpp");
   assert.equal(parseCoursePlanLine("cpp"), "cpp");
   await importStudents([
+    { studentName: "同名新入口", score: "A+", teacherName: "测试老师", courseLine: "lowage", programType: "英才班" },
     { studentName: "同名新入口", score: "A+", teacherName: "测试老师", courseLine: "preschool", programType: "英才班" },
     { studentName: "同名新入口", score: "A", teacherName: "测试老师", courseLine: "cpp", programType: "科特班" },
     { studentName: "同名新入口", score: "B", teacherName: "测试老师", courseLine: "cpp", programType: "英才班" }
   ]);
   assert.equal((await queryStudentByName("同名新入口", queryScopeForEntry("bpreschool")))?.score, "A+");
+  assert.equal((await queryStudentByName("同名新入口", queryScopeForEntry("yeyingcai")))?.courseLine, "preschool");
+  assert.notEqual((await queryStudentByName("同名新入口", queryScopeForEntry("bpreschool")))?.id,
+    (await queryStudentByName("同名新入口", queryScopeForEntry("yeyingcai")))?.id);
   assert.equal((await queryStudentByName("同名新入口", queryScopeForEntry("bcpp")))?.score, "A");
-  assert.equal(getCoursePlanLineForPayload({ courseLine: "preschool", targetClass: "英才班", entry: "bpreschool" }).goalImage, "/images/course-plan/b-new/preschool-outline.png");
+  assert.equal(getCoursePlanLineForPayload({ courseLine: "lowage", targetClass: "英才班", entry: "bpreschool" }).goalImage, "/images/course-plan/b-new/preschool-outline.png");
+  assert.equal(getCoursePlanLineForPayload({ courseLine: "lowage", targetClass: "英才班", entry: "bpreschool" }).scheduleImage, "/images/course-plan/b-new/preschool-schedule.png");
   assert.equal(getCoursePlanLineForPayload({ courseLine: "cpp", targetClass: "科特班", entry: "bcpp" }).scheduleImage, "/images/course-plan/b-new/cpp-schedule.png");
   assert.equal(getCoursePlanLineForPayload({ courseLine: "preschool", targetClass: "英才班", entry: "yeyingcai" }).goalImage, "/images/course-plan/preschool-yingcai-goal.png");
+});
+
+test("high-age entry is isolated and uses every Python elite plan material", async () => {
+  resetMemoryStoreForTests();
+  assert.deepEqual(queryScopeForEntry("bhighage"), { courseLine: "highage", yingcai: true });
+  assert.equal(queryEntryPath("bhighage"), "/entry/bhighage");
+  const rows = toStudentRows([
+    { 学生姓名: "高龄同名", 成绩: "A+", 班级类型: "英才班", 课线: "高龄" },
+    { 学生姓名: "高龄同名", 成绩: "A+", 班级类型: "英才班", 课线: "Python" }
+  ]);
+  assert.deepEqual(rows.map((row) => row.courseLine), ["highage", "python"]);
+  await importStudents(rows);
+  const highage = await queryStudentByName("高龄同名", queryScopeForEntry("bhighage"));
+  const python = await queryStudentByName("高龄同名", queryScopeForEntry("pyyingcai"));
+  assert.equal(highage?.courseLine, "highage");
+  assert.equal(python?.courseLine, "python");
+  assert.notEqual(highage?.id, python?.id);
+  assert.equal(await queryStudentByName("高龄同名", queryScopeForEntry("bpreschool")), null);
+  const highagePlan = getCoursePlanLineForPayload({ courseLine: "highage", targetClass: "英才班", entry: "bhighage" });
+  const pythonPlan = getCoursePlanLineForPayload({ courseLine: "python", targetClass: "英才班", entry: "pyyingcai" });
+  for (const key of ["goalImage", "planDetailImage", "scheduleImage", "period", "weekly", "examTarget", "coursePromise"] as const) {
+    assert.equal(highagePlan[key], pythonPlan[key]);
+  }
 });
 
 test("passwords are hashed and verified", async () => {
@@ -331,18 +361,20 @@ test("duplicate imports update records and teachers only see assigned students",
 });
 
 test("student course-line import normalizes supported values and rejects unknown lines", () => {
-  assert.deepEqual(["python", "moon", "rocket", "preschool", "cpp"].map((line) => parseCoursePlanLine(line)), ["python", "moon", "rocket", "preschool", "cpp"]);
+  assert.deepEqual(["python", "moon", "rocket", "preschool", "lowage", "highage", "cpp"].map((line) => parseCoursePlanLine(line)), ["python", "moon", "rocket", "preschool", "lowage", "highage", "cpp"]);
   const rows = toStudentRows([
     { 学生姓名: "课线Python", 成绩: "A+", 课线: "PYTHON" },
     { 学生姓名: "课线探月", 成绩: "A+", 课程线: "探月" },
     { 学生姓名: "课线火箭", 成绩: "A+", 课程课线: "小火箭" },
     { 学生姓名: "课线幼儿", 成绩: "A+", 课线: "幼儿", 班级类型: "英才班" },
+    { 学生姓名: "课线低龄", 成绩: "A+", 课线: "低龄", 班级类型: "英才班" },
+    { 学生姓名: "课线高龄", 成绩: "A+", 课线: "高龄", 班级类型: "英才班" },
     { 学生姓名: "课线C++", 成绩: "A+", 课线: "C++", 班级类型: "科特班" }
   ]);
-  assert.deepEqual(rows.map((row) => row.courseLine), ["python", "moon", "rocket", "preschool", "cpp"]);
+  assert.deepEqual(rows.map((row) => row.courseLine), ["python", "moon", "rocket", "preschool", "lowage", "highage", "cpp"]);
   assert.throws(
     () => toStudentRows([{ 学生姓名: "未知课线", 成绩: "A+", 课线: "Java" }]),
-    /请填写 Python、探月、小火箭、幼儿或 C\+\+/
+    /请填写 Python、探月、小火箭、幼儿、低龄、高龄或 C\+\+/
   );
 });
 

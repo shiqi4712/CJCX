@@ -192,7 +192,7 @@ function BottomAction({ label, icon: Icon, onClick, secondaryAction }: { label: 
 function RoadmapView({ payload, onBack, onNext }: { payload: CoursePlanPayload; onBack: () => void; onNext: () => void }) {
   const courseLine = getCoursePlanLineForPayload(payload);
   const outlineOnly = payload.entry === "bpreschool" || payload.entry === "bcpp";
-  const usesNewTalentMaterial = courseLine.id === "preschool" || (courseLine.id === "python" && isYingcaiClass(payload.targetClass));
+  const usesNewTalentMaterial = courseLine.id === "preschool" || courseLine.id === "lowage" || courseLine.id === "highage" || (courseLine.id === "python" && isYingcaiClass(payload.targetClass));
   return (
     <section className="page roadmap-page page--with-action">
       <div className="page-heading page-heading--stacked"><p className="eyebrow">个性化成长路径</p><h1>{outlineOnly ? "专属课程学习规划" : "专属6个月学习目标"}</h1><p>学习目标、学科知识与赛事目标同步规划。</p></div>

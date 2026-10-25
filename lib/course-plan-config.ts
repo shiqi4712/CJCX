@@ -41,28 +41,65 @@ export type CoursePlanLine = {
   scheduleImage: string;
 };
 
+const PYTHON_YINGCAI_MATERIALS = {
+  goalImage: "/images/course-plan/python-yingcai-goal.png",
+  planDetailImage: "/images/course-plan/python-yingcai-plan-detail.jpg",
+  scheduleImage: "/images/course-plan/python-yingcai-schedule.jpg"
+} as const;
+
+const pythonCourseLine: CoursePlanLine = {
+  id: "python",
+  name: "Python",
+  targetClass: "英才班",
+  period: "6个月",
+  weekly: "每周1次",
+  officialHours: "60课时",
+  giftHours: "73课时",
+  totalHours: "133课时",
+  examTarget: "NCT2级",
+  price: "3180元",
+  priceNote: "英才特训营享大额教育补贴减免，具体方案以正式通知为准。",
+  focusDefault: "Python 编程、算法思维、赛考能力",
+  goalDefault: "系统掌握 Python 编程，冲刺编程考级与白名单赛事成果",
+  scheduleText: "定制化上课时间，可提前预约老师直播辅导。",
+  coursePromise: "正式课一周一次，一次两课时。可根据孩子周末或晚间时间灵活安排。",
+  classPromise: "围绕孩子进度安排学习节奏，避免大班跟不上、问题没人接的断点。",
+  pathPromise: "课程大纲对标 Python 编程考级与白名单赛事，半年内形成可展示成果。",
+  goalImage: "/images/course-plan/python-goal.jpg",
+  planDetailImage: "/images/course-plan/python-plan-detail.jpg",
+  scheduleImage: "/images/course-plan/python-schedule.png"
+};
+
+const preschoolCourseLine: CoursePlanLine = {
+  id: "preschool",
+  name: "幼儿",
+  targetClass: "英才班",
+  period: "6个月",
+  weekly: "每周1次",
+  officialHours: "按规划安排",
+  giftHours: "阶段辅导",
+  totalHours: "按规划安排",
+  examTarget: "全国性幼儿编程创赛展",
+  price: "以顾问报价为准",
+  priceNote: "适合幼儿阶段建立编程兴趣、逻辑思维与表达能力。",
+  focusDefault: "编程启蒙、逻辑思维、创造表达",
+  goalDefault: "通过项目实践与互动训练，建立幼儿阶段的编程思维基础",
+  scheduleText: "根据幼儿作息安排学习时间，可提前预约老师直播辅导。",
+  coursePromise: "以趣味项目和互动任务建立稳定学习兴趣。",
+  classPromise: "英才班小班带教，老师持续关注孩子的理解与表达。",
+  pathPromise: "围绕思维、知识和生活迁移设计六个月成长路径。",
+  goalImage: "/images/course-plan/preschool-yingcai-goal.png",
+  planDetailImage: "/images/course-plan/preschool-yingcai-plan-detail.jpeg",
+  scheduleImage: "/images/course-plan/preschool-yingcai-schedule.png"
+};
+
 export const COURSE_PLAN_LINES: Record<CoursePlanLineId, CoursePlanLine> = {
-  python: {
-    id: "python",
-    name: "Python",
-    targetClass: "英才班",
-    period: "6个月",
-    weekly: "每周1次",
-    officialHours: "60课时",
-    giftHours: "73课时",
-    totalHours: "133课时",
-    examTarget: "NCT2级",
-    price: "3180元",
-    priceNote: "英才特训营享大额教育补贴减免，具体方案以正式通知为准。",
-    focusDefault: "Python 编程、算法思维、赛考能力",
-    goalDefault: "系统掌握 Python 编程，冲刺编程考级与白名单赛事成果",
-    scheduleText: "定制化上课时间，可提前预约老师直播辅导。",
-    coursePromise: "正式课一周一次，一次两课时。可根据孩子周末或晚间时间灵活安排。",
-    classPromise: "围绕孩子进度安排学习节奏，避免大班跟不上、问题没人接的断点。",
-    pathPromise: "课程大纲对标 Python 编程考级与白名单赛事，半年内形成可展示成果。",
-    goalImage: "/images/course-plan/python-goal.jpg",
-    planDetailImage: "/images/course-plan/python-plan-detail.jpg",
-    scheduleImage: "/images/course-plan/python-schedule.png"
+  python: pythonCourseLine,
+  highage: {
+    ...pythonCourseLine,
+    ...PYTHON_YINGCAI_MATERIALS,
+    id: "highage",
+    name: "高龄"
   },
   moon: {
     id: "moon",
@@ -108,27 +145,14 @@ export const COURSE_PLAN_LINES: Record<CoursePlanLineId, CoursePlanLine> = {
     planDetailImage: "/images/course-plan/rocket-plan-detail.jpg",
     scheduleImage: "/images/course-plan/rocket-schedule.png"
   },
-  preschool: {
-    id: "preschool",
-    name: "幼儿",
-    targetClass: "英才班",
-    period: "6个月",
-    weekly: "每周1次",
-    officialHours: "按规划安排",
-    giftHours: "阶段辅导",
-    totalHours: "按规划安排",
-    examTarget: "全国性幼儿编程创赛展",
-    price: "以顾问报价为准",
-    priceNote: "适合幼儿阶段建立编程兴趣、逻辑思维与表达能力。",
-    focusDefault: "编程启蒙、逻辑思维、创造表达",
-    goalDefault: "通过项目实践与互动训练，建立幼儿阶段的编程思维基础",
-    scheduleText: "根据幼儿作息安排学习时间，可提前预约老师直播辅导。",
-    coursePromise: "以趣味项目和互动任务建立稳定学习兴趣。",
-    classPromise: "英才班小班带教，老师持续关注孩子的理解与表达。",
-    pathPromise: "围绕思维、知识和生活迁移设计六个月成长路径。",
-    goalImage: "/images/course-plan/preschool-yingcai-goal.png",
-    planDetailImage: "/images/course-plan/preschool-yingcai-plan-detail.jpeg",
-    scheduleImage: "/images/course-plan/preschool-yingcai-schedule.png"
+  preschool: preschoolCourseLine,
+  lowage: {
+    ...preschoolCourseLine,
+    id: "lowage",
+    name: "低龄",
+    goalImage: "/images/course-plan/b-new/preschool-outline.png",
+    planDetailImage: "/images/course-plan/b-new/preschool-outline.png",
+    scheduleImage: "/images/course-plan/b-new/preschool-schedule.png"
   },
   cpp: {
     id: "cpp",
@@ -159,6 +183,8 @@ export function normalizeCoursePlanLine(value?: string | null): CoursePlanLineId
   if (text === "python" || text === "py" || text.includes("python")) return "python";
   if (text === "moon" || text.includes("探月")) return "moon";
   if (text === "rocket" || text.includes("小火箭")) return "rocket";
+  if (text === "lowage" || text.includes("低龄")) return "lowage";
+  if (text === "highage" || text.includes("高龄")) return "highage";
   if (text === "preschool" || text.includes("幼儿")) return "preschool";
   if (text === "cpp" || text.includes("c++") || text.includes("c＋＋")) return "cpp";
   // Legacy links used class-plan ids; keep them opening with the former graphical curriculum default.
@@ -176,10 +202,12 @@ export function parseCoursePlanLine(value?: string | null): CoursePlanLineId {
     key === "py" ||
     text.includes("探月") ||
     text.includes("小火箭") ||
+    text.includes("低龄") ||
+    text.includes("高龄") ||
     text.includes("幼儿") ||
     normalized === "cpp";
   if (!recognized) {
-    throw new Error(`课线“${text}”无效，请填写 Python、探月、小火箭、幼儿或 C++`);
+    throw new Error(`课线“${text}”无效，请填写 Python、探月、小火箭、幼儿、低龄、高龄或 C++`);
   }
   return normalized;
 }
@@ -187,12 +215,6 @@ export function parseCoursePlanLine(value?: string | null): CoursePlanLineId {
 export function getCoursePlanLine(value?: string | null) {
   return COURSE_PLAN_LINES[normalizeCoursePlanLine(value)];
 }
-
-const PYTHON_YINGCAI_MATERIALS = {
-  goalImage: "/images/course-plan/python-yingcai-goal.png",
-  planDetailImage: "/images/course-plan/python-yingcai-plan-detail.jpg",
-  scheduleImage: "/images/course-plan/python-yingcai-schedule.jpg"
-} as const;
 
 const B_YINGCAI_MATERIALS = {
   bpython: {

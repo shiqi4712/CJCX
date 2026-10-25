@@ -12,7 +12,8 @@ export const QUERY_ENTRIES: Record<string, QueryScope> = {
   "bpython.bcmty.cn": { courseLine: "python", yingcai: true },
   "bmoon.bcmty.cn": { courseLine: "moon", yingcai: true },
   "brocket.bcmty.cn": { courseLine: "rocket", yingcai: true },
-  "bpreschool.bcmty.cn": { courseLine: "preschool", yingcai: true },
+  "bpreschool.bcmty.cn": { courseLine: "lowage", yingcai: true },
+  "bhighage.bcmty.cn": { courseLine: "highage", yingcai: true },
   "bcpp.bcmty.cn": { courseLine: "cpp", yingcai: false }
 };
 
