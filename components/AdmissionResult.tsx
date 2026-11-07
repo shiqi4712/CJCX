@@ -10,7 +10,7 @@ import {
   normalizeProgramType
 } from "@/lib/programs";
 import { normalizeCoursePlanLine, type CoursePlanPayload } from "@/lib/course-plan-config";
-import { buildPerformanceRatings as buildPerformanceRatingsFromCounts } from "@/lib/performance-ratings";
+import { buildPerformanceRatings } from "@/lib/performance-ratings";
 import { getAbilityRankByOverallScore } from "@/lib/result-scoring";
 
 export type QueryResult = {
@@ -93,18 +93,6 @@ function buildRadarPoints(scores: AbilityScore[]) {
     .join(" ");
 }
 
-function buildPerformanceRatings(result: QueryResult) {
-  const homeworkCount = result.homeworkLessonCount ?? 0;
-  return [
-    { label: "上课表现", value: (result.videoCount ?? 0) > 2 ? 4 : 3 },
-    {
-      label: "作业提交",
-      value: homeworkCount >= 3 ? 4 : 2 + (hashText(`${result.studentId}:${result.studentName}:homework-stars`) % 2)
-    },
-    { label: "课程打卡", value: 3 }
-  ];
-}
-
 function encodePlanPayload(payload: CoursePlanPayload) {
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   let binary = "";
@@ -124,7 +112,7 @@ export function AdmissionResult({ result }: { result: QueryResult }) {
   const abilityRank =
     getAbilityRankByOverallScore(result.overallScore) ??
     2 + (hashText(`${result.studentId}:${result.studentName}:ability-rank`) % 9);
-  const performanceRatings = buildPerformanceRatingsFromCounts(result);
+  const performanceRatings = buildPerformanceRatings(result);
   const planPayload: CoursePlanPayload = {
     entry: result.entry,
     studentId: result.studentId,

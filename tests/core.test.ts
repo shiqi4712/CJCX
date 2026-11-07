@@ -232,6 +232,19 @@ test("ability rank follows the overall score", () => {
   assert.equal(getAbilityRankByOverallScore(null), null);
 });
 
+test("classroom stars follow overall score regardless of homework and video counts", () => {
+  const scores = [85, 96.99, 97, 97.99, 98, 99, 100];
+  const stars = scores.map((score) => buildPerformanceRatings({
+    overallScore: String(score), homeworkLessonCount: 0, videoCount: 0
+  })[0].value);
+  assert.deepEqual(stars, [3, 3, 4, 4, 5, 5, 5]);
+  assert.equal(buildPerformanceRatings({ overallScore: "98.5", videoCount: 0 })[0].value, 5);
+  assert.equal(buildPerformanceRatings({ overallScore: "97.5", videoCount: 3 })[0].value, 4);
+  for (const overallScore of [undefined, null, "", " ", "invalid", "Infinity"]) {
+    assert.equal(buildPerformanceRatings({ overallScore })[0].value, 4);
+  }
+});
+
 test("performance ratings follow imported homework and video counts", () => {
   assert.deepEqual(buildPerformanceRatings({ homeworkLessonCount: 0, videoCount: 0 }), [
     { label: "上课表现", value: 4 },
