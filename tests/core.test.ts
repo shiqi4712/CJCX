@@ -120,7 +120,7 @@ test("subdomain queries and reimports isolate the original five course groups", 
   assert.equal(queryScopeForHost("bcmty.cn"), undefined);
 });
 
-test("rejected Python and preschool students remain queryable in their imported class", async () => {
+test("B-grade imported students are admitted and remain isolated by course and class", async () => {
   resetMemoryStoreForTests();
   await importStudents([
     { studentName: "未录取同名", score: "B", teacherName: "未分配老师", courseLine: "python", programType: "科特班" },
@@ -131,10 +131,10 @@ test("rejected Python and preschool students remain queryable in their imported 
   const python = await queryStudentByName("未录取同名", queryScopeForEntry("pyyingcai"));
   const kete = await queryStudentByName("未录取同名", queryScopeForEntry("pykete"));
   const preschool = await queryStudentByName("未录取低龄", queryScopeForEntry("yeyingcai"));
-  assert.equal(python?.admission, "未录取");
+  assert.equal(python?.admission, "已录取");
   assert.equal(python?.programType, "英才特训营");
   assert.equal(kete?.programType, "科特班");
-  assert.equal(preschool?.admission, "未录取");
+  assert.equal(preschool?.admission, "已录取");
   assert.equal((await queryStudentByName("未录取低龄", queryScopeForEntry("bpreschool")))?.courseLine, "lowage");
   assert.notEqual((await queryStudentByName("未录取低龄", queryScopeForEntry("bpreschool")))?.id, preschool?.id);
   assert.equal(await queryStudentByName("未录取低龄", queryScopeForEntry("pyyingcai")), null);
@@ -348,7 +348,7 @@ test("duplicate imports update records and teachers only see assigned students",
   ]);
   const first = await importStudents([
     { studentName: "张小明", score: "A", overallScore: "96.5", teacherName: "王老师", warZone: "华东战区" },
-    { studentName: "张小明", score: "B", teacherName: "李老师" }
+    { studentName: "张小明", score: "B", teacherName: "李老师", courseLine: "python" }
   ]);
   assert.equal(first.importedCount, 2);
 
@@ -445,7 +445,7 @@ test("old elite class label maps to elite training camp", () => {
   assert.match(getProgramIntro("英才特训营"), /^英才特训营是编程猫依托北大共建 AI 实验室开设/);
 });
 
-test("only S A A+ and 前10% scores are admitted", async () => {
+test("all uploaded grades are admitted with their original grades and class", async () => {
   await importStudents([
     { studentName: "等级S学生", score: "S", teacherName: "未分配老师" },
     { studentName: "等级A+学生", score: "A+", teacherName: "未分配老师" },
@@ -462,12 +462,14 @@ test("only S A A+ and 前10% scores are admitted", async () => {
   assert.equal(overview.students.find((student) => student.studentName === "等级A学生")?.admission, "已录取");
   assert.equal(overview.students.find((student) => student.studentName === "等级A+学生")?.admission, "已录取");
   assert.equal(overview.students.find((student) => student.studentName === "前十学生")?.admission, "已录取");
-  assert.equal(overview.students.find((student) => student.studentName === "等级B学生")?.admission, "未录取");
-  assert.equal(overview.students.find((student) => student.studentName === "等级C学生")?.admission, "未录取");
-  assert.equal(overview.students.find((student) => student.studentName === "综合学生")?.admission, "未录取");
-  assert.equal(overview.students.find((student) => student.studentName === "未知学生")?.admission, "未录取");
+  for (const name of ["等级B学生", "等级C学生", "综合学生", "未知学生"]) {
+    const student = overview.students.find((student) => student.studentName === name);
+    assert.equal(student?.admission, "已录取");
+    assert.notEqual(student?.className, "继续努力");
+  }
+  assert.equal(overview.students.find((student) => student.studentName === "等级B学生")?.score, "B");
   assertScoreInRange(overview.students.find((student) => student.studentName === "等级A+学生")?.overallScore, 97, 99);
-  assertScoreInRange(overview.students.find((student) => student.studentName === "等级B学生")?.overallScore, 85, 95);
+  assertScoreInRange(overview.students.find((student) => student.studentName === "等级B学生")?.overallScore, 97, 99);
 });
 
 test("same-name query returns the earliest published record and records status", async () => {
@@ -645,6 +647,26 @@ test("course plan content follows the student's imported course line", async () 
   assert.equal(getCoursePlanLine("moon").planDetailImage, "/images/course-plan/moon-plan-detail.jpg");
   assert.equal(getCoursePlanLine("rocket").scheduleImage, "/images/course-plan/rocket-schedule.png");
 
+});
+
+test("reimport upgrades a legacy rejected student without creating a duplicate", async () => {
+  resetMemoryStoreForTests();
+  const row = { studentName: "历史学生", score: "C", teacherName: "未分配老师", programType: "英才班", courseLine: "python" as const };
+  await importStudents([row]);
+  const legacy = globalThis.admissionMemoryState!.students[0];
+  const originalId = legacy.id;
+  legacy.admission = "未录取";
+  legacy.className = "继续努力";
+
+  const result = await importStudents([row]);
+  assert.equal(result.updatedCount, 1);
+  assert.equal(result.importedCount, 0);
+  const overview = await getOverview("admin");
+  assert.equal(overview.students.length, 1);
+  assert.equal(overview.students[0].id, originalId);
+  assert.equal(overview.students[0].admission, "已录取");
+  assert.equal(overview.students[0].className, "英才班");
+  assert.equal(overview.students[0].score, "C");
 });
 
 test("course-plan export creates one personalized PDF per student", async () => {

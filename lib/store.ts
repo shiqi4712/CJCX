@@ -30,20 +30,9 @@ function generateOverallScore(admissionStatus: string) {
   return (cents / 100).toFixed(2);
 }
 
-function buildAdmissionByScore(score: string, inputProgramType?: string | null, importedClassName?: string | null) {
+function buildImportedAdmission(inputProgramType?: string | null, importedClassName?: string | null) {
   const programType = normalizeProgramType(inputProgramType);
   const className = String(importedClassName ?? inputProgramType ?? "").trim() || programType;
-  const normalizedScore = score.trim().replace(/\s+/g, "").toUpperCase();
-  if (!["S", "A", "A+", "前10%"].includes(normalizedScore)) {
-    return {
-      programType,
-      admission: "未录取",
-      className: "继续努力",
-      detail: "编程猫希望你继续保持热爱，稳扎稳打提升基础能力，下一次选拔再向目标发起冲刺。",
-      advice: "这次结果不代表终点。建议巩固课堂基础、保持每周练习，并在老师指导下逐步提升。"
-    };
-  }
-
   return {
     programType,
     admission: "已录取",
@@ -583,7 +572,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
     const importedClassName = String(row.programType ?? "").trim();
     const programType = normalizeProgramType(importedClassName);
     const courseLine = normalizeCoursePlanLine(row.courseLine);
-    const admission = buildAdmissionByScore(row.score, programType, importedClassName);
+    const admission = buildImportedAdmission(programType, importedClassName);
     const overallScore = generateOverallScore(admission.admission);
     const teacherName = row.teacherName && row.teacherName !== "未分配老师" ? row.teacherName : null;
     const homeworkLessonCount = row.homeworkLessonCount ?? 0;
@@ -595,7 +584,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
       const existing = memory.students.find(
         (student) =>
           normalizeName(student.studentName) === normalizeName(row.studentName) &&
-          student.courseLine === courseLine && student.className === admission.className &&
+          student.courseLine === courseLine && (student.className === admission.className || student.admission === "未录取") &&
           student.programType === programType
       );
       if (existing) {
@@ -651,7 +640,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
 
     {
       const existing = (await sql.query(
-        "SELECT id FROM students WHERE normalized_name=$1 AND course_line=$2 AND class_name=$3 AND program_type=$4 ORDER BY created_at ASC, id ASC LIMIT 1",
+        "SELECT id FROM students WHERE normalized_name=$1 AND course_line=$2 AND (class_name=$3 OR admission='未录取') AND program_type=$4 ORDER BY created_at ASC, id ASC LIMIT 1",
         [normalizeName(row.studentName), courseLine, admission.className, programType]
       )) as unknown as Array<{ id: string }>;
       if (existing[0]) {
@@ -925,7 +914,7 @@ export async function updateStudent(
   const studentName = input.studentName ?? current.studentName;
   const score = input.score ?? current.score;
   const teacherName = input.teacherName ?? current.teacherName;
-  const importedClassName = String(input.programType ?? current.className).trim();
+  const importedClassName = String(input.programType ?? (current.admission === "未录取" ? current.programType : current.className)).trim();
   const programType = normalizeProgramType(importedClassName);
   const courseLine = normalizeCoursePlanLine(input.courseLine ?? current.courseLine);
   const published = input.published ?? current.published;
@@ -933,7 +922,7 @@ export async function updateStudent(
   const homeworkLessonCount = current.homeworkLessonCount;
   const videoCount = current.videoCount;
   const messageCount = current.messageCount;
-  const admission = buildAdmissionByScore(score, programType, importedClassName);
+  const admission = buildImportedAdmission(programType, importedClassName);
   const overallScore = generateOverallScore(admission.admission);
 
   if (!hasDatabase()) {
