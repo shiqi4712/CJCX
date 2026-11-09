@@ -567,6 +567,7 @@ export async function importStudents(rows: SheetStudentRow[]) {
   await ensureReady();
   let importedCount = 0;
   let updatedCount = 0;
+  const validatedTeachers = new Set<string>();
 
   for (const row of rows) {
     const importedClassName = String(row.programType ?? "").trim();
@@ -630,12 +631,13 @@ export async function importStudents(rows: SheetStudentRow[]) {
     }
 
     const sql = getSql();
-    if (teacherName) {
+    if (teacherName && !validatedTeachers.has(teacherName)) {
       const teacherRows = (await sql.query(
         "SELECT 1 FROM teacher_accounts WHERE teacher_name = $1 AND role = 'teacher'",
         [teacherName]
       )) as unknown[];
       if (teacherRows.length === 0) throw new Error(`老师账号不存在：${teacherName}`);
+      validatedTeachers.add(teacherName);
     }
 
     {

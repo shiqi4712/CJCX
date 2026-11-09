@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth";
 import { archiveUploadedFile } from "@/lib/blob-storage";
 import { isSheetFile, parseSheetFile, toStudentRows } from "@/lib/sheets";
 import { importStudents } from "@/lib/store";
+import { importResponse } from "@/lib/import-response";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -35,14 +36,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await importStudents(rows);
-    let archiveWarning: string | undefined;
-    try {
-      await archiveUploadedFile("imports/students", file);
-    } catch {
-      archiveWarning = "成绩已导入，但原文件备份失败";
-    }
-    return NextResponse.json({ ...result, archiveWarning });
+    return importResponse(async () => {
+      const result = await importStudents(rows);
+      let archiveWarning: string | undefined;
+      try {
+        await archiveUploadedFile("imports/students", file);
+      } catch {
+        archiveWarning = "成绩已导入，但原文件备份失败";
+      }
+      return { ...result, archiveWarning };
+    });
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "学生成绩导入失败" },

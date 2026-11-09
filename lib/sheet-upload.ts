@@ -18,7 +18,7 @@ export function uploadSheet(endpoint: string, file: File, onProgress: (progress:
         return;
       }
       if (!result || typeof result.importedCount !== "number" || !Number.isFinite(result.importedCount)) {
-        reject(new Error("未收到有效导入结果，请刷新数据核对。"));
+        reject(new Error(result?.message || "未收到有效导入结果，请刷新数据核对。"));
         return;
       }
       resolve(result);

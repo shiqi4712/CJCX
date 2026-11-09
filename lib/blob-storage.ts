@@ -21,7 +21,8 @@ function getClient() {
     bucket,
     accessKeyId,
     accessKeySecret,
-    secure: true
+    secure: true,
+    timeout: 10_000
   });
 
   return client;

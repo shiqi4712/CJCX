@@ -47,6 +47,7 @@ test("failed, invalid and interrupted upload responses never report success", as
     { status: 400, body: '{"message":"成绩表无有效数据"}', message: /无有效数据/ },
     { status: 502, body: "<html>Bad Gateway</html>", message: /服务器响应异常/ },
     { status: 200, body: "null", message: /未收到有效导入结果/ },
+    { status: 200, body: ' \n{"message":"老师账号不存在"}', message: /老师账号不存在/ },
     { status: 200, body: "{}", message: /未收到有效导入结果/ }
   ];
   for (const scenario of scenarios) {

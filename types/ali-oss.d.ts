@@ -6,6 +6,7 @@ declare module "ali-oss" {
     accessKeyId: string;
     accessKeySecret: string;
     secure?: boolean;
+    timeout?: number;
   };
 
   type PutOptions = {
